@@ -1,0 +1,98 @@
+---
+name: Issue Commands Manager
+on:
+  issue_comment: { types: [created] }
+permissions:
+  contents: write
+  issues: write
+  actions: write
+  discussions: write
+concurrency:
+  group: issue-commands
+  cancel-in-progress: false
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ !github.event.issue.pull_request && github.event.issue.number == 1 }}
+    steps:
+      # ① 第一道门禁
+      - name: Permission gate
+        id: gate
+        env:
+          COMMENT_USER: ${{ github.event.comment.user.login }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          if [ "$COMMENT_USER" == "$REPO_OWNER" ]; then
+            echo "authorized=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "authorized=false" >> "$GITHUB_OUTPUT"
+            gh api -X DELETE "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.authorized == 'true'
+
+      # ② 执行命令
+      - name: Run command
+        id: cmd
+        if: steps.gate.outputs.authorized == 'true'
+        uses: acg-q/userscript-console@ffd137cd20c780e1b582e752c8631e9dbe1cc31c
+        with:
+          command: run-command
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-body: ${{ github.event.comment.body }}
+          comment-user: ${{ github.event.comment.user.login }}
+          issue-number: ${{ github.event.issue.number }}
+
+      # ③ 投影对账
+      - name: Project issues
+        id: proj
+        if: steps.gate.outputs.authorized == 'true'
+        uses: acg-q/userscript-console@ffd137cd20c780e1b582e752c8631e9dbe1cc31c
+        with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}" }
+
+      # ④ 提交（路径白名单）
+      - name: Commit changes
+        id: commit
+        if: steps.gate.outputs.authorized == 'true' && steps.cmd.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add registry.json scripts dist archive
+          if git diff --staged --quiet; then
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit -m "Apply command: ${{ github.event.comment.user.login }}"
+            git push
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ⑤ 派发部署
+      - name: Trigger site deploy
+        if: steps.gate.outputs.authorized == 'true' && steps.commit.outputs.committed == 'true'
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: |
+          gh workflow run deploy-pages.yml -R ${{ github.repository }} \
+            || echo "⚠️ 站点部署派发失败（不阻断），可手动触发"
+
+      # ⑥ 失败也回帖
+      - name: Reply to comment
+        if: ${{ !cancelled() && steps.gate.outputs.authorized == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          RESULT: ${{ steps.cmd.outputs.result }}
+          PROJ: ${{ steps.proj.outputs.result }}
+          CMD_OK: ${{ steps.cmd.outcome }}
+        run: |
+          set -uo pipefail
+          if [ -n "$RESULT" ]; then BODY="$RESULT"; else BODY="操作完成"; fi
+          if [ "$CMD_OK" != "success" ] && [ "$CMD_OK" != "skipped" ]; then
+            BODY="⚠️ 命令执行失败（Run command: $CMD_OK），请查看本次运行日志。"$'\n\n'"$BODY"
+          fi
+          if [ -n "$PROJ" ]; then BODY="$BODY"$'\n\n'"$PROJ"; fi
+          gh issue comment "$ISSUE_NUMBER" -R ${{ github.repository }} \
+            --body "**执行结果：**"$'\n'"$BODY"

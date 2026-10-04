@@ -1,0 +1,25 @@
+---
+name: Init Command Panel
+on:
+  workflow_dispatch:
+permissions:
+  issues: write
+jobs:
+  init:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # 刻意不 checkout：contents: none 下 checkout 必失败，用 grep 判定面板是否已存在
+    steps:
+      - name: Check panel existence
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh issue list --state open --search "命令面板" -R ${{ github.repository }} | grep -q .; then
+            echo "面板已存在，跳过创建"
+            exit 0
+          fi
+          gh issue create \
+            --title "命令面板" \
+            --body "在此 Issue 下发送命令（如 \`/list\`、\`/add <URL>\`）以管理脚本。" \
+            --label "command-panel" \
+            -R ${{ github.repository }}

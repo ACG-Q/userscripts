@@ -1,0 +1,48 @@
+---
+name: Scheduled Sync
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  issues: write
+  actions: write
+  discussions: write
+concurrency:
+  group: scheduled-sync
+  cancel-in-progress: false
+
+jobs:
+  sync-all:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run /sync-all
+        id: cmd
+        uses: acg-q/userscript-console@ffd137cd20c780e1b582e752c8631e9dbe1cc31c
+        with:
+          command: run-command
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-body: /sync-all
+          comment-user: ${{ github.repository_owner }}
+          issue-number: '1'
+      - name: Project issues
+        id: proj
+        uses: acg-q/userscript-console@ffd137cd20c780e1b582e752c8631e9dbe1cc31c
+        with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}" }
+      - name: Commit changes
+        id: commit
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add registry.json scripts dist
+          if git diff --staged --quiet; then echo "无更新"; else
+            git commit -m "chore: 同步第三方脚本"; git push; echo "pushed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Trigger site deploy
+        if: steps.commit.outputs.pushed == 'true'
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: |
+          gh workflow run deploy-pages.yml -R ${{ github.repository }} \
+            || echo "⚠️ 派发失败（不阻断）"

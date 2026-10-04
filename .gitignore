@@ -1,0 +1,21 @@
+# 站点部署产物（build 生成，不入库）
+dist/index.html
+dist/scripts/
+dist/scripts.json
+dist/commands/
+dist/build-warnings.txt
+_site/
+
+# 运行期临时（阶段 4 后 command_result.txt 随 Python 移除）
+command_result.txt
+*.tmp
+*.log
+
+# 阶段 4 移除工具代码后不再需要的条目（U4-2）
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+tools/schema.docs.graphql

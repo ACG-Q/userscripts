@@ -1,0 +1,41 @@
+---
+name: Cleanup Command Panel
+on:
+  schedule: { cron: '0 3 * * *' }
+  workflow_dispatch:
+permissions:
+  contents: write
+  issues: write
+  actions: write
+concurrency:
+  group: cleanup-panel
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Archive and clean
+        id: clean
+        uses: acg-q/userscript-console@ffd137cd20c780e1b582e752c8631e9dbe1cc31c
+        with:
+          command: cleanup
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          keep: '10'
+          apply: 'true'
+      - name: Commit archive
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add archive
+          if git diff --staged --quiet; then echo "无归档变更"; else
+            git commit -m "chore(archive): 归档命令面板历史评论"; git push
+          fi
+      - name: Trigger site deploy
+        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: |
+          gh workflow run deploy-pages.yml -R ${{ github.repository }} \
+            || echo "⚠️ 派发失败（不阻断）"
