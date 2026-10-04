@@ -138,6 +138,30 @@ for f in TOOL_WORKFLOWS:
 if len(pinned) > 1:
     errors.append(f'tool pins inconsistent across workflows: {sorted(pinned)}')
 
+# ── 9. use-binary: true（v1 二进制模式，C4-2） ──────────────────────────
+# 工具仓已发布 v1.0.0（5 平台二进制 + sha256 自动回填）。调用方应全部走
+# 预编译二进制，而不是每次 `go run` 源码编译 —— doctor/build 慢一个量级。
+USE_BINARY_EXPECTED = 7  # 5 个 workflow 共 7 处调用点
+use_binary_seen = 0
+
+for f in TOOL_WORKFLOWS:
+    raw, doc, _ = load_wf(f)
+    for job_name, job in (doc.get('jobs') or {}).items():
+        for step in job.get('steps') or []:
+            uses = str(step.get('uses', ''))
+            if not uses.startswith(REPO + '@'):
+                continue
+            use_binary_seen += 1
+            if (step.get('with') or {}).get('use-binary') is not True:
+                errors.append(
+                    f'{f} [{job_name}]: use-binary 应为 true'
+                    '（v1 二进制已发布；源码模式每次都要 go run 编译）')
+
+if use_binary_seen != USE_BINARY_EXPECTED:
+    errors.append(
+        f'tool 调用点应为 {USE_BINARY_EXPECTED} 处，实际 {use_binary_seen}'
+        '（新增 workflow 调用时同步更新此常量）')
+
 # ── report ──────────────────────────────────────────────────────────────────
 if errors:
     print('VALIDATION FAILED:')
@@ -154,3 +178,4 @@ print('  timeouts:     5 checked')
 print('  git add:      no dangerous patterns')
 print('  euo pipefail: critical run steps covered')
 print('  !cancelled:   reply step guarded')
+print(f'  use-binary:   {use_binary_seen}/{USE_BINARY_EXPECTED} call sites (v1 binary)')

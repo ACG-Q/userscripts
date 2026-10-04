@@ -39,20 +39,24 @@ jobs:
       - name: Run command
         id: cmd
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@614f54393c41cd2c0eea69223e8d17df0e3614a8
+        uses: acg-q/userscript-console@7be2d61c589a6b7fb52275c4ca59dc74520028be
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-body: ${{ github.event.comment.body }}
           comment-user: ${{ github.event.comment.user.login }}
           issue-number: ${{ github.event.issue.number }}
+          use-binary: true
 
       # ③ 投影对账
       - name: Project issues
         id: proj
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@614f54393c41cd2c0eea69223e8d17df0e3614a8
-        with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}" }
+        uses: acg-q/userscript-console@7be2d61c589a6b7fb52275c4ca59dc74520028be
+        with:
+          command: project
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          use-binary: true
 
       # ④ 提交（路径白名单）
       - name: Commit changes
