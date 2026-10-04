@@ -254,11 +254,30 @@ jobs:
 
 ### 2.4 `cleanup-panel.yml`（定期清理归档）
 
+> 实现说明（与原文的差异，均为**安全性增强**，不改变归档语义）：
+> - `workflow_dispatch` 增加 `apply`（boolean，默认 **false**）与 `keep`（string，默认 `'10'`）两个 input；
+>   **手动触发默认 dry-run**，只有显式传 `apply=true` 才真删评论。定时触发仍固定 `apply=true`。
+> - `apply` / `keep` 由一个 `id: cfg` 的前置步骤按触发来源算出，避免把表达式散落在多处。
+> - `actions/checkout` 加 `fetch-depth: 0` —— 归档是累积文件，浅克隆下 `git push` 会被拒（fetch first）。
+> - 提交步骤加 `id: commit`，仅在 Action 的 `changed == 'true'` 时执行；
+>   部署派发进一步以 `committed == 'true'` 为条件 —— 没有归档变更就不重建站点。
+> - 末尾加 `if: always()` 的汇总步骤，打印触发来源 / changed / committed / result，便于事后核对。
+
 ```yaml
 name: Cleanup Command Panel
 on:
-  schedule: { cron: '0 3 * * *' }   # 每天 UTC 03:00
+  schedule:
+    - cron: '0 3 * * *'
   workflow_dispatch:
+    inputs:
+      apply:
+        description: 'true=真正删除超期评论；false=dry-run 只体检（默认 dry-run，更安全）'
+        type: boolean
+        default: false
+      keep:
+        description: '每个命令组保留的最近评论数'
+        type: string
+        default: '10'
 permissions: { contents: write, issues: write, actions: write }
 concurrency: { group: cleanup-panel, cancel-in-progress: false }
 jobs:
@@ -267,30 +286,47 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@<sha>
+        with: { fetch-depth: 0 }
+
+      - name: 清理输入（记录本次口径，便于事后核对）
+        id: cfg
+        run: |
+          set -euo pipefail
+          # 手动触发用 input（默认 dry-run）；定时触发固定 apply=true
+          # ... 输出 apply / keep 到 $GITHUB_OUTPUT
+
       - name: Archive and clean
         id: clean
         uses: acg-q/userscript-console@<sha>
         with:
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          keep: '10'
-          apply: 'true'
-      - name: Commit archive
+          keep: ${{ steps.cfg.outputs.keep }}
+          apply: ${{ steps.cfg.outputs.apply }}
+
+      - name: 提交归档
+        id: commit
+        if: steps.clean.outputs.changed == 'true'
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add archive
-          if git diff --staged --quiet; then echo "无归档变更"; else
-            git commit -m "chore(archive): 归档命令面板历史评论"; git push
-          fi
-      - name: Trigger site deploy
+          if git diff --staged --quiet; then echo "committed=false" >> "$GITHUB_OUTPUT"
+          else git commit -m "chore(archive): 归档命令面板历史评论"; git push; echo "committed=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: 派发站点重建
+        if: steps.commit.outputs.committed == 'true'
         env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: |
-          gh workflow run deploy-pages.yml -R ${{ github.repository }} \
-            || echo "⚠️ 派发失败（不阻断）"
+        run: gh workflow run deploy-pages.yml -R "${{ github.repository }}" || echo "::warning::派发失败"
+
+      - name: 汇总
+        if: always()
+        run: echo "changed=${{ steps.clean.outputs.changed }} …"
 ```
-**验收**：当前 6 组 < 10 组 → 输出「无需清理」、`changed=false`、无提交；`apply: false` 的 dry-run 变体用于 U3-3 观察。
+
+**验收**：
+- dispatch（不传 apply）→ dry-run，输出「无需清理」、`changed=false`、无提交、无部署派发；
+- dispatch 且 `apply=true` → 真删超期评论 + 提交 `archive/commands.json` + 派发部署；
+- dispatch 且 `keep` 调大到超过组内评论总数 → 不删任何评论（幂等键命中，`committed=false`）。
 
 ---
 

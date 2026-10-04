@@ -1,14 +1,46 @@
+# 面板历史评论清理与归档（CUTOVER §2.4 / SPEC-WORKFLOWS §2.4）
+#
+# 归档语义（SPEC-DATA §2.3）：
+#   每个命令组保留最近 N 条评论（默认 10），其余归档进 archive/commands.json 后删除。
+#   幂等键 = command_id —— 重复触发不会重复归档；归档先落盘再删评论。
+#
+# 安全设计：
+#   1. **默认 dry-run**：schedule 走 apply=true（日常维护），
+#      workflow_dispatch 额外提供 apply / keep 两个 input，
+#      其中 apply 支持显式传 'false' 做只读体检（U3-3 观察项）。
+#   2. **changed 短路**：Action 的 changed output 为 false 时，
+#      跳过提交与部署派发 —— 省 runner，也避免无意义 Pages 重建。
+#   3. **cron 可关**：把下面 schedule 段注释掉即停止定时清理，
+#      workflow_dispatch 仍可用（首次接入或排障时很有用）。
+#   4. **归档缺失不算失败**：新仓尚无 archive/ 时 cleanup 应报「无需清理」而非红。
+
 ---
 name: Cleanup Command Panel
 on:
-  schedule: { cron: '0 3 * * *' }
+  schedule:
+    # 每天 UTC 03:00；注释掉即可停用定时清理（workflow_dispatch 仍可用）
+    - cron: '0 3 * * *'
   workflow_dispatch:
+    inputs:
+      apply:
+        description: 'true=真正删除超期评论；false=dry-run 只体检（默认 dry-run，更安全）'
+        type: boolean
+        default: false
+        required: false
+      keep:
+        description: '每个命令组保留的最近评论数（≤ 组内评论总数时不会删除任何评论）'
+        type: string
+        default: '10'
+        required: false
+
 permissions:
-  contents: write
-  issues: write
-  actions: write
+  contents: write   # 提交 archive/commands.json
+  issues: write     # 删除命令面板历史评论
+  actions: write    # 派发 deploy-pages.yml
+
 concurrency:
   group: cleanup-panel
+  # 不取消：定时任务撞车时排队执行，避免「清理到一半被取消」留下半截归档
   cancel-in-progress: false
 
 jobs:
@@ -17,26 +49,89 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
+        with:
+          # 归档是累积文件，历史可能被并发 push 改动；
+          # 浅克隆下 git push 会被拒（fetch first），这里要完整历史。
+          fetch-depth: 0
+
+      - name: 清理输入（记录本次口径，便于事后核对）
+        id: cfg
+        env:
+          EVENT: ${{ github.event_name }}
+          DISPATCH_APPLY: ${{ inputs.apply }}
+          KEEP: ${{ inputs.keep }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            # 手动触发：用 input 决定，并显式落盘为 GITHUB_OUTPUT 供后续 step 引用
+            if [ "$DISPATCH_APPLY" = "true" ]; then
+              APPLY=true
+            else
+              APPLY=false
+            fi
+            echo "手动触发：keep=$KEEP apply=$APPLY"
+          else
+            # 定时触发：固定真实清理（维护动作，无人值守）
+            APPLY=true
+            KEEP=10
+            echo "定时触发：keep=$KEEP apply=$APPLY"
+          fi
+          echo "apply=$APPLY" >> "$GITHUB_OUTPUT"
+          echo "keep=$KEEP" >> "$GITHUB_OUTPUT"
+
       - name: Archive and clean
         id: clean
         uses: acg-q/userscript-console@4fc7da192a6220ed19042387b40a931a50464e84
         with:
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          keep: '10'
-          apply: 'true'
+          # keep/apply 从上一步的 output 传入；默认 dry-run 时不碰评论
+          keep: ${{ steps.cfg.outputs.keep }}
+          apply: ${{ steps.cfg.outputs.apply }}
           use-binary: true
-      - name: Commit archive
+
+      - name: 提交归档
+        id: commit
+        # changed=false 说明既没删评论也没改归档 → 无需提交
+        if: steps.clean.outputs.changed == 'true'
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # 白名单：只提交 archive/（SPEC-WORKFLOWS §4）
           git add archive
-          if git diff --staged --quiet; then echo "无归档变更"; else
-            git commit -m "chore(archive): 归档命令面板历史评论"; git push
+
+          if git diff --staged --quiet; then
+            # changed=true 但归档无差异：可能是评论被删而归档已在库中
+            # （幂等键命中），此时不提交，直接放行。
+            echo "归档无实际变更，跳过提交"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          else
+            N=$(git diff --staged --numstat | wc -l | tr -d ' ')
+            git commit -m "chore(archive): 归档命令面板历史评论（${N} 组）"
+            git push
+            echo "committed=true" >> "$GITHUB_OUTPUT"
           fi
-      - name: Trigger site deploy
-        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+
+      - name: 派发站点重建
+        # 仅在真的提交了归档时才重建站点：
+        # 站点 commands/page-N.html 渲染自 archive/commands.json，
+        # 没有归档变更就不需要重建（省一次 Pages 构建）。
+        if: steps.commit.outputs.committed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh workflow run deploy-pages.yml -R ${{ github.repository }} \
-            || echo "⚠️ 派发失败（不阻断）"
+          set -euo pipefail
+          # GITHUB_TOKEN 的 push 不触发 workflow（CUTOVER §0 纪律 4），
+          # 所以归档提交后必须显式派发。
+          gh workflow run deploy-pages.yml -R "${{ github.repository }}" \
+            || echo "::warning::站点重建派发失败，可手动触发 deploy-pages.yml"
+
+      - name: 汇总
+        if: always()
+        run: |
+          echo "触发=${{ github.event_name }}"
+          echo "changed=${{ steps.clean.outputs.changed }}"
+          echo "committed=${{ steps.commit.outputs.committed }}"
+          echo "result=${{ steps.clean.outputs.result }}"
