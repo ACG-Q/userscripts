@@ -10,8 +10,9 @@
 |---|---|
 | 仓名 | `userscript-manager`（**禁止改名**，DR-3） |
 | Pages URL | `https://acg-q.github.io/userscript-manager` |
-| 工具仓 SHA | `ffd137cd20c780e1b582e752c8631e9dbe1cc31c`（`userscript-console@v1`） |
-| 本仓 HEAD | `ffd137cd20c780e1b582e752c8631e9dbe1cc31c` |
+| 工具仓 SHA | `ffd137cd20c780e1b582e752c8631e9dbe1cc31c`（`userscript-console@v1`，含 release 自校验） |
+| 本仓 HEAD | `1de9eb5407a78f23e74636db21084e967d1de8a1` |
+| workflow pin | 7 处 `uses:` 全部对齐工具仓最新 sha ✅ |
 
 ---
 
@@ -22,7 +23,7 @@
 grep -c 'downloadURL' dist/*.user.js 2>/dev/null || echo "0"
 ```
 
-**基线值**：`N`（填写实际数字，当前 registry 为空 → `0`）
+**基线值**：`0`（当前 registry 为空，无存量脚本）
 
 ---
 
