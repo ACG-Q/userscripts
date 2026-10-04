@@ -59,12 +59,15 @@
 
 工具仓 Go 重构期间（10–16 人日），本仓只做**观察**，不加功能。
 
+> **补充**：`tools/validate_workflows.py` 提供 CI 前本地校验（permissions / timeout / concurrency / git add whitelist / euo pipefail / !cancelled guard / tool SHA pin），可定期运行确保配置不漂移。
+
 | ID | 任务 | 频率 | 验收 | 状态 |
 |---|---|---|---|---|
 | U3-1 | 每次 `command`/`sync` 运行后检查：`git diff --exit-code registry.json scripts dist`（构建幂等，无意外 diff） | 每次真实命令 | 连续 10 次无差异 | ⏳ 观察中 |
 | U3-2 | 每次 `deploy` 后抽样冒烟：`index.html` 含 `commands/page-1.html` 链接、`scripts.json` 可取、目标详情页版本下拉存在 | 每次部署 | 冒烟清单（CUTOVER §3）全过 | ⏳ 观察中 |
 | U3-3 | 每周跑一次 `cleanup` dry-run（`apply: false`），对比归档计数 | 每周 | 计数单调、无重复归档 | ⏳ 观察中 |
 | U3-4 | 每次工具仓 release 后：确认 `action.yml` 的 version/sha 同步，再决定是否 bump pin | 每次 release | sha 校验通过 | ✅ 已验证 |
+| U3-5 | 本地 `python tools/validate_workflows.py` 全绿 | 每次改动 workflow 前 | 8 项校验全过 | ✅ 已实现 |
 
 **退出条件**（全部满足才进阶段 4）：
 - [ ] 工具仓测试与快照基线全绿（见工具仓 `MIGRATION` §4）
