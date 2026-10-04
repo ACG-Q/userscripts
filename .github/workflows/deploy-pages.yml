@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Build site
-        uses: acg-q/userscript-console@173da3d1d2b76e6ab3c6c27027655e002562e464
+        uses: acg-q/userscript-console@614f54393c41cd2c0eea69223e8d17df0e3614a8
         with: { command: build, github-token: "${{ secrets.GITHUB_TOKEN }}" }
       - name: Stage site structure
         run: |

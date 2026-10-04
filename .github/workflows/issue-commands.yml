@@ -39,7 +39,7 @@ jobs:
       - name: Run command
         id: cmd
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@173da3d1d2b76e6ab3c6c27027655e002562e464
+        uses: acg-q/userscript-console@614f54393c41cd2c0eea69223e8d17df0e3614a8
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -51,7 +51,7 @@ jobs:
       - name: Project issues
         id: proj
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@173da3d1d2b76e6ab3c6c27027655e002562e464
+        uses: acg-q/userscript-console@614f54393c41cd2c0eea69223e8d17df0e3614a8
         with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}" }
 
       # ④ 提交（路径白名单）
