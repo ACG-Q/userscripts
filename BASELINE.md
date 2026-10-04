@@ -10,7 +10,7 @@
 |---|---|
 | 仓名 | `userscript-manager`（**禁止改名**，DR-3） |
 | Pages URL | `https://acg-q.github.io/userscript-manager` |
-| 工具仓 SHA | `c459f821839bb0b2e434751a8be45bf4415f73e4`（`userscript-console` master：Actions 版本升级至 Node 24 基线） |
+| 工具仓 SHA | `173da3d1d2b76e6ab3c6c27027655e002562e464`（`userscript-console` master：Actions 升级 + GITHUB_OUTPUT heredoc 修复） |
 | 本仓 HEAD | （推送后见 `git rev-parse HEAD`） |
 | workflow pin | 7 处 `uses:` 全部对齐工具仓 master ✅ |
 | 校验 | `python tools/validate_workflows.py` 自动比对工具仓 `origin/master`，pin 过期即红（U3-4） |
