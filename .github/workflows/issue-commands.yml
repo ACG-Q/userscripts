@@ -39,7 +39,7 @@ jobs:
       - name: Run command
         id: cmd
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@7be2d61c589a6b7fb52275c4ca59dc74520028be
+        uses: acg-q/userscript-console@2484fac195008d33f96ba2c9e97468e01acb23d3
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -52,7 +52,7 @@ jobs:
       - name: Project issues
         id: proj
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@7be2d61c589a6b7fb52275c4ca59dc74520028be
+        uses: acg-q/userscript-console@2484fac195008d33f96ba2c9e97468e01acb23d3
         with:
           command: project
           github-token: "${{ secrets.GITHUB_TOKEN }}"
