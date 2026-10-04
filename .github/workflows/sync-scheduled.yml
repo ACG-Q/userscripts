@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Run /sync-all
         id: cmd
-        uses: acg-q/userscript-console@ff9a876ae2d0a599763256dfa7e2f997ad2b9f48
+        uses: acg-q/userscript-console@aa02a0079a65f126cdac648156e41a4e0dc8595b
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -29,7 +29,7 @@ jobs:
           use-binary: true
       - name: Project issues
         id: proj
-        uses: acg-q/userscript-console@ff9a876ae2d0a599763256dfa7e2f997ad2b9f48
+        uses: acg-q/userscript-console@aa02a0079a65f126cdac648156e41a4e0dc8595b
         with:
           command: project
           github-token: "${{ secrets.GITHUB_TOKEN }}"

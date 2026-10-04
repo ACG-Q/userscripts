@@ -81,7 +81,7 @@ jobs:
 
       - name: Archive and clean
         id: clean
-        uses: acg-q/userscript-console@ff9a876ae2d0a599763256dfa7e2f997ad2b9f48
+        uses: acg-q/userscript-console@aa02a0079a65f126cdac648156e41a4e0dc8595b
         with:
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}
