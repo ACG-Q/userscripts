@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """Validate all GitHub workflows against SPEC-WORKFLOWS.md."""
-import yaml, re, sys
+import os
+import re
+import subprocess
+import sys
+
+import yaml
 
 errors = []
-warnings = []
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 def load_wf(name):
@@ -62,7 +66,6 @@ if '!cancelled()' not in ic_raw:
 # ── 6. set -euo pipefail on run steps ──────────────────────────────────────
 for f in ['issue-commands.yml','sync-scheduled.yml','cleanup-panel.yml']:
     raw = open(f'.github/workflows/{f}', encoding='utf-8').read()
-    # Split into steps by "- name:"
     steps = re.split(r'\n      - name: ', raw)
     for step_text in steps:
         if 'run: |' not in step_text:
@@ -73,12 +76,11 @@ for f in ['issue-commands.yml','sync-scheduled.yml','cleanup-panel.yml']:
         if not lines:
             continue
         first = lines[0]
-        # skip pure-echo warnings and gh workflow run || true
         if first.startswith('echo'):
             continue
         if 'gh workflow run' in run_body and '||' in run_body:
             continue
-        # Reply step intentionally uses set -uo (not -e) to always post at least partial result
+        # Reply step intentionally uses set -uo (not -e) to always post partial result
         if step_name == 'Reply to comment':
             continue
         if 'set -euo pipefail' not in run_body:
@@ -99,15 +101,42 @@ for f, expected_keys in TRIGGERS.items():
     if got != expected_keys:
         errors.append(f'{f}: triggers got={got} expected={expected_keys}')
 
-# ── 8. tool SHA pinning ────────────────────────────────────────────────────
-TOOL_SHA = 'ffd137cd20c780e1b582e752c8631e9dbe1cc31c'
+# ── 8. tool SHA pinning (U3-4: pin must track tool repo master) ───────────
 REPO = 'acg-q/userscript-console'
-for f in ['issue-commands.yml','deploy-pages.yml','sync-scheduled.yml','cleanup-panel.yml','validate.yml']:
+TOOL_WORKFLOWS = ['issue-commands.yml', 'deploy-pages.yml', 'sync-scheduled.yml',
+                  'cleanup-panel.yml', 'validate.yml']
+
+
+def latest_tool_sha():
+    """Read the tool repo's master SHA; returns None when unreachable."""
+    tool_repo = os.path.normpath(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'userscript-console'))
+    if not os.path.isdir(os.path.join(tool_repo, '.git')):
+        return None
+    try:
+        out = subprocess.run(['git', '-C', tool_repo, 'rev-parse', 'origin/master'],
+                             capture_output=True, text=True, timeout=10)
+        sha = out.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return sha if re.fullmatch(r'[0-9a-f]{40}', sha) else None
+
+
+LATEST = latest_tool_sha()
+pinned = set()
+
+for f in TOOL_WORKFLOWS:
     raw = open(f'.github/workflows/{f}', encoding='utf-8').read()
-    refs = re.findall(f'{re.escape(REPO)}@([a-f0-9]+)', raw)
-    for sha in refs:
-        if sha != TOOL_SHA:
-            errors.append(f'{f}: stale tool pin {sha} (expected {TOOL_SHA})')
+    for sha in re.findall(f'{re.escape(REPO)}@([0-9a-f]+)', raw):
+        if len(sha) != 40:
+            errors.append(f'{f}: tool pin must be a 40-char sha, got {sha}')
+            continue
+        pinned.add(sha)
+        if LATEST and sha != LATEST:
+            errors.append(f'{f}: stale tool pin {sha} (tool master = {LATEST})')
+
+if len(pinned) > 1:
+    errors.append(f'tool pins inconsistent across workflows: {sorted(pinned)}')
 
 # ── report ──────────────────────────────────────────────────────────────────
 if errors:
@@ -115,11 +144,13 @@ if errors:
     for e in errors:
         print(f'  ERROR: {e}')
     sys.exit(1)
-else:
-    print('ALL CHECKS PASSED — workflows match SPEC-WORKFLOWS.md')
-    print(f'  tool SHA pin: {TOOL_SHA} across 5 workflows')
-    print(f'  permissions: 6 workflows verified')
-    print(f'  timeouts:     5 checked')
-    print(f'  git add:      no dangerous patterns')
-    print(f'  euo pipefail: critical run steps covered')
-    print(f'  !cancelled:   reply step guarded')
+
+pin_summary = (sorted(pinned)[0][:12] + '…') if pinned else '(none)'
+freshness = '' if LATEST else '  [freshness not checked: tool repo unreachable]'
+print('ALL CHECKS PASSED — workflows match SPEC-WORKFLOWS.md')
+print(f'  tool SHA pin: {pin_summary} across 5 workflows{freshness}')
+print('  permissions: 6 workflows verified')
+print('  timeouts:     5 checked')
+print('  git add:      no dangerous patterns')
+print('  euo pipefail: critical run steps covered')
+print('  !cancelled:   reply step guarded')

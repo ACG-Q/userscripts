@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Archive and clean
         id: clean
-        uses: acg-q/userscript-console@ffd137cd20c780e1b582e752c8631e9dbe1cc31c
+        uses: acg-q/userscript-console@42acaa9fcdb6e98c4bd913acf6b8261ef6c8f57a
         with:
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}
