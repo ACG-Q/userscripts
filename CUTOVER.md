@@ -30,17 +30,18 @@ git rev-parse HEAD                          # → BASELINE.tool
 ### Step 2 —— 建工具仓（工具仓 PLAN 阶段1 / 内容仓 U1）
 - 前置：U1-1 迁出路径清单终签（基于 U0-3 的 `docs-ownership.md`）
 - 动作：克隆镜像 → `git filter-repo --path <清单>` → 推到新仓 `userscript-console` → 工具仓 CI 首跑
-- 验证：工具仓 `pytest tests/` 全绿；`tests/snapshot/`、`tests/fixtures/` 目录就位（快照基线随后续 M-0/M-1 逐步提交）；**内容仓 `git status` 干净、历史未变**
+- **实际情况**：本仓 `userscript-console` 从零用 Go 搭建（未使用 filter-repo），Python 参照实现从未进入本仓。MIGRATION §4 退出条件已满足，C4-4 无需额外操作。
+- 验证：工具仓 `go test ./...` 全绿 + 覆盖率 ≥90%；`usm snapshot check` 通过；`action.yml` v1 骨架就绪
 - 回滚：删除新仓即可（内容仓零改动）
 
 ### Step 3 —— 接入第一条 workflow（`issue-commands.yml`，U2-1）
-- 前置：工具仓已打 tag（`v0.1.0`），`action.yml` v0（Python 实现）自测绿
-- 动作：按 `SPEC-WORKFLOWS §2.1` 改写，pin sha，提 PR
+- 前置：工具仓已打 tag（`v0.2.0` / `v1`），`action.yml` v0（Go 源码模式）CI 全绿
+- 实际状态：本仓 6 条 workflow 已全量实现并通过 `tools/validate_workflows.py` 校验
 - 验证（**端到端三条**）：
   1. Issue #1 发 `/list` → 正常回帖、`git diff` 无（`changed=false` 不提交）
   2. Issue #1 发 `/add <代码块>` → 回帖含 ID；`git status` **只有** `registry.json`/`scripts/`/`dist/` 变化
   3. 用另一账号发命令 → 评论被删、无回帖
-- 回滚：revert 该 PR → 回到内联 Python 步骤（Python 代码仍在本仓）
+- 回滚：revert 该 PR → 回到内联 Python 步骤（Python 代码已不在此仓，回滚 = revert workflow 文件）
 
 ### Step 4 —— `deploy-pages.yml`（U2-2）
 - 动作：按 `SPEC-WORKFLOWS §2.2` 改写（触发器与 `if` 逐字保留）
