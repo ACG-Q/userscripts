@@ -16,10 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Archive and clean
         id: clean
-        uses: acg-q/userscript-console@42acaa9fcdb6e98c4bd913acf6b8261ef6c8f57a
+        uses: acg-q/userscript-console@c459f821839bb0b2e434751a8be45bf4415f73e4
         with:
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}

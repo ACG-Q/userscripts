@@ -32,14 +32,14 @@ jobs:
             gh api -X DELETE "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.gate.outputs.authorized == 'true'
 
       # ② 执行命令
       - name: Run command
         id: cmd
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@42acaa9fcdb6e98c4bd913acf6b8261ef6c8f57a
+        uses: acg-q/userscript-console@c459f821839bb0b2e434751a8be45bf4415f73e4
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -51,7 +51,7 @@ jobs:
       - name: Project issues
         id: proj
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@42acaa9fcdb6e98c4bd913acf6b8261ef6c8f57a
+        uses: acg-q/userscript-console@c459f821839bb0b2e434751a8be45bf4415f73e4
         with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}" }
 
       # ④ 提交（路径白名单）
