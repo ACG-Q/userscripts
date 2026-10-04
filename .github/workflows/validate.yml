@@ -19,7 +19,7 @@ jobs:
         run: |
           python -c "import json,sys; d=json.load(open('registry.json',encoding='utf-8')); assert isinstance(d.get('scripts'),list); [_ for s in d['scripts'] if not s.get('id') or s.get('type') not in ('self','synced') and (_ for _ in ()).throw(SystemExit('缺 id/type: '+str(s)))]"
       - name: 数据一致性（doctor）
-        uses: acg-q/userscript-console@2484fac195008d33f96ba2c9e97468e01acb23d3
+        uses: acg-q/userscript-console@4fc7da192a6220ed19042387b40a931a50464e84
         with:
           command: doctor
           github-token: "${{ secrets.GITHUB_TOKEN }}"
