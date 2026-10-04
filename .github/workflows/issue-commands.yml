@@ -24,6 +24,7 @@ jobs:
           COMMENT_USER: ${{ github.event.comment.user.login }}
           REPO_OWNER: ${{ github.repository_owner }}
         run: |
+          set -euo pipefail
           if [ "$COMMENT_USER" == "$REPO_OWNER" ]; then
             echo "authorized=true" >> "$GITHUB_OUTPUT"
           else
