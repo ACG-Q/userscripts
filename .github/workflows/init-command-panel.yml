@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
 permissions:
   issues: write
+
 jobs:
   init:
     runs-on: ubuntu-latest
