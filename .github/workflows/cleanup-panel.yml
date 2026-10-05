@@ -1,8 +1,6 @@
 name: Cleanup Command Panel
 on:
   schedule:
-    # 每天 UTC 03:00；注释掉即可停用定时清理（workflow_dispatch 仍可用）
-    # Daily 03:00 UTC; comment out to disable scheduled cleanup (workflow_dispatch still works)
     - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
