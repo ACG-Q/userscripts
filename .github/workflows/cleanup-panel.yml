@@ -79,13 +79,13 @@ jobs:
           echo "apply=$APPLY" >> "$GITHUB_OUTPUT"
           echo "keep=$KEEP" >> "$GITHUB_OUTPUT"
 
+      # 零手填二进制：@v1.1.0 + use-binary: true
       - name: Archive and clean
         id: clean
-        uses: acg-q/userscript-console@aa02a0079a65f126cdac648156e41a4e0dc8595b
+        uses: acg-q/userscript-console@v1.1.0
         with:
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          # keep/apply 从上一步的 output 传入；默认 dry-run 时不碰评论
           keep: ${{ steps.cfg.outputs.keep }}
           apply: ${{ steps.cfg.outputs.apply }}
           use-binary: true

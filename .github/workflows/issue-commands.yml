@@ -35,11 +35,11 @@ jobs:
       - uses: actions/checkout@v5
         if: steps.gate.outputs.authorized == 'true'
 
-      # ② 执行命令
+      # ② 执行命令（零手填二进制：@v1.1.0 + use-binary: true）
       - name: Run command
         id: cmd
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@aa02a0079a65f126cdac648156e41a4e0dc8595b
+        uses: acg-q/userscript-console@v1.1.0
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -52,10 +52,10 @@ jobs:
       - name: Project issues
         id: proj
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@aa02a0079a65f126cdac648156e41a4e0dc8595b
+        uses: acg-q/userscript-console@v1.1.0
         with:
           command: project
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           use-binary: true
 
       # ④ 提交（路径白名单）

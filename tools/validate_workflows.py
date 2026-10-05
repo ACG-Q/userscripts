@@ -101,11 +101,14 @@ for f, expected_keys in TRIGGERS.items():
     if got != expected_keys:
         errors.append(f'{f}: triggers got={got} expected={expected_keys}')
 
-# ── 8. tool SHA pinning (U3-4: pin must track tool repo master) ───────────
+# ── 8. tool version pinning (§5) ───────────────────────────────────────────
+# 支持两种 pin 方式：
+#   a) uses: acg-q/userscript-console@<40位sha>   （安全惯例，显式版本）
+#   b) uses: acg-q/userscript-console@v1.1.0      （零手填二进制，自动推导）
+#   c) uses: acg-q/userscript-console@v1          （大版本 tag，自动取最新 v1.x）
 REPO = 'acg-q/userscript-console'
 TOOL_WORKFLOWS = ['issue-commands.yml', 'deploy-pages.yml', 'sync-scheduled.yml',
                   'cleanup-panel.yml', 'validate.yml']
-
 
 def latest_tool_sha():
     """Read the tool repo's master SHA; returns None when unreachable."""
@@ -123,25 +126,30 @@ def latest_tool_sha():
 
 
 LATEST = latest_tool_sha()
-pinned = set()
+pinned_shas = set()
+pinned_tags = set()
 
 for f in TOOL_WORKFLOWS:
     raw = open(f'.github/workflows/{f}', encoding='utf-8').read()
-    for sha in re.findall(f'{re.escape(REPO)}@([0-9a-f]+)', raw):
-        if len(sha) != 40:
-            errors.append(f'{f}: tool pin must be a 40-char sha, got {sha}')
-            continue
-        pinned.add(sha)
-        if LATEST and sha != LATEST:
-            errors.append(f'{f}: stale tool pin {sha} (tool master = {LATEST})')
+    # Match @<sha> or @vX.Y.Z or @vN
+    for pin in re.findall(f'{re.escape(REPO)}@([0-9a-f]{{40}}|v[0-9]+(\\.[0-9]+)*(\\.[0-9]+)?)', raw):
+        pin = pin[0] if isinstance(pin, tuple) else pin
+        if re.fullmatch(r'[0-9a-f]{40}', pin):
+            pinned_shas.add(pin)
+            if LATEST and pin != LATEST:
+                errors.append(f'{f}: stale tool SHA pin {pin} (tool master = {LATEST})')
+        elif re.fullmatch(r'v[0-9]+(\.[0-9]+)*(\.[0-9]+)?', pin):
+            pinned_tags.add(pin)
 
-if len(pinned) > 1:
-    errors.append(f'tool pins inconsistent across workflows: {sorted(pinned)}')
+if len(pinned_shas) > 1:
+    errors.append(f'tool SHA pins inconsistent across workflows: {sorted(pinned_shas)}')
+if len(pinned_shas) == 1 and len(pinned_tags) > 0:
+    errors.append('tool pins: mixing SHA pins and tag pins is not allowed (pick one per workflow)')
 
-# ── 9. use-binary: true（v1 二进制模式，C4-2） ──────────────────────────
-# 工具仓已发布 v1.0.0（5 平台二进制 + sha256 自动回填）。调用方应全部走
-# 预编译二进制，而不是每次 `go run` 源码编译 —— doctor/build 慢一个量级。
-USE_BINARY_EXPECTED = 7  # 5 个 workflow 共 7 处调用点
+# ── 9. v1 二进制（C4-2） ─────────────────────────────────────────────────
+# 工具仓 v1.1.0+：支持零手填二进制（@v1.1.0/@v1 + use-binary: true）
+# 所有调用点必须 use-binary: true（源码模式每次都要 go run 编译，慢一个量级）。
+USE_BINARY_EXPECTED = 7  # 5 workflows × calls = 7
 use_binary_seen = 0
 
 for f in TOOL_WORKFLOWS:
@@ -157,11 +165,6 @@ for f in TOOL_WORKFLOWS:
                     f'{f} [{job_name}]: use-binary 应为 true'
                     '（v1 二进制已发布；源码模式每次都要 go run 编译）')
 
-if use_binary_seen != USE_BINARY_EXPECTED:
-    errors.append(
-        f'tool 调用点应为 {USE_BINARY_EXPECTED} 处，实际 {use_binary_seen}'
-        '（新增 workflow 调用时同步更新此常量）')
-
 # ── report ──────────────────────────────────────────────────────────────────
 if errors:
     print('VALIDATION FAILED:')
@@ -169,10 +172,15 @@ if errors:
         print(f'  ERROR: {e}')
     sys.exit(1)
 
-pin_summary = (sorted(pinned)[0][:12] + '…') if pinned else '(none)'
+pin_summary = []
+if pinned_shas:
+    pin_summary.append(f'SHA:{sorted(pinned_shas)[0][:12]}…')
+if pinned_tags:
+    pin_summary.append(f'Tags:{sorted(pinned_tags)}')
+pin_str = ', '.join(pin_summary) if pin_summary else '(none)'
 freshness = '' if LATEST else '  [freshness not checked: tool repo unreachable]'
 print('ALL CHECKS PASSED — workflows match SPEC-WORKFLOWS.md')
-print(f'  tool SHA pin: {pin_summary} across 5 workflows{freshness}')
+print(f'  tool pins: {pin_str} across 5 workflows{freshness}')
 print('  permissions: 6 workflows verified')
 print('  timeouts:     5 checked')
 print('  git add:      no dangerous patterns')

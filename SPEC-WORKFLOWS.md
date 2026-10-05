@@ -49,8 +49,8 @@ jobs:
         run: |
           python -c "import json,sys; d=json.load(open('registry.json',encoding='utf-8')); assert isinstance(d.get('scripts'),list); [(_ for _ in ()).throw(SystemExit('缺 id/type: '+str(s))) for s in d['scripts'] if not s.get('id') or s.get('type') not in ('self','synced')]"
       - name: 数据一致性（doctor）
-        uses: acg-q/userscript-console@<sha>
-        with: { command: doctor, github-token: "${{ secrets.GITHUB_TOKEN }}" }
+        uses: acg-q/userscript-console@v1.1.0
+        with: { command: doctor, github-token: "${{ secrets.GITHUB_TOKEN }}", use-binary: true }
 ```
 > 代码级门禁（ruff/mypy/coverage/snapshot）**不在此仓**，属工具仓；迁移期可临时并存，阶段 4 删除（PLAN U4-3）。
 
@@ -95,20 +95,21 @@ jobs:
       - name: Run command
         id: cmd
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@<sha>
+        uses: acg-q/userscript-console@v1.1.0
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-body: ${{ github.event.comment.body }}   # 经 input→env 传递，绝不内插 shell
           comment-user: ${{ github.event.comment.user.login }}
           issue-number: ${{ github.event.issue.number }}
+          use-binary: true
 
       # ③ registry → Issues/版本帖 对账（命令可能改了 registry）
       - name: Project issues
         id: proj
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@<sha>
-        with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}" }
+        uses: acg-q/userscript-console@v1.1.0
+        with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}", use-binary: true }
 
       # ④ 提交（⚠️ 路径白名单；changed=false 时不提交）
       - name: Commit changes
@@ -179,8 +180,8 @@ jobs:
     steps:
       - uses: actions/checkout@<sha>
       - name: Build site
-        uses: acg-q/userscript-console@<sha>
-        with: { command: build, github-token: "${{ secrets.GITHUB_TOKEN }}" }
+        uses: acg-q/userscript-console@v1.1.0
+        with: { command: build, github-token: "${{ secrets.GITHUB_TOKEN }}", use-binary: true }
       # ── 以下 _site 组装逐字保留（Pages 特有，属本仓） ──
       - name: Stage site structure
         run: |
@@ -222,17 +223,18 @@ jobs:
       - uses: actions/checkout@<sha>
       - name: Run /sync-all        # 身份注入与原版一致：以仓库拥有者名义执行
         id: cmd
-        uses: acg-q/userscript-console@<sha>
+        uses: acg-q/userscript-console@v1.1.0
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-body: /sync-all
           comment-user: ${{ github.repository_owner }}
           issue-number: '1'
+          use-binary: true
       - name: Project issues
         id: proj
-        uses: acg-q/userscript-console@<sha>
-        with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}" }
+        uses: acg-q/userscript-console@v1.1.0
+        with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}", use-binary: true }
       - name: Commit changes
         run: |
           set -euo pipefail
@@ -297,12 +299,13 @@ jobs:
 
       - name: Archive and clean
         id: clean
-        uses: acg-q/userscript-console@<sha>
+        uses: acg-q/userscript-console@v1.1.0
         with:
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}
           keep: ${{ steps.cfg.outputs.keep }}
           apply: ${{ steps.cfg.outputs.apply }}
+          use-binary: true
 
       - name: 提交归档
         id: commit
@@ -358,14 +361,31 @@ jobs:
 
 ---
 
-## 5. pin 策略
+## 5. pin 策略与二进制零手填（v1.1.0+）
 
 ```yaml
-uses: acg-q/userscript-console@<40位commit-sha>   # 内容仓（含本仓 workflow 互相引用第三方 action）
-# 外部用户文档写法：
-uses: acg-q/userscript-console@v1                 # 移动大版本 tag（工具仓 release CI 维护）
+# 内容仓（安全惯例）：显式 pin sha + 显式二进制版本
+uses: acg-q/userscript-console@<40位commit-sha>
+with:
+  use-binary: true
+  binary-version: '1.1.0'
+  binary-sha256: '<64位十六进制，来自 release checksums.txt>'
+
+# 零手填二进制（推荐，工具仓 v1.1.0+）：只需写 tag，版本+校验和自动推导
+uses: acg-q/userscript-console@v1.1.0   # 精确版本 tag → 推导到对应 release
+with:
+  use-binary: true
+  # binary-version / binary-sha256 自动从 @v1.1.0 推导
+
+# 零手填 + 大版本 tag（自动取最新 v1.x）
+uses: acg-q/userscript-console@v1
+with:
+  use-binary: true
+  # 自动查 GitHub API 取最新 v1.x release
 ```
-- 与本仓现有惯例一致（`actions/checkout@d23441a4…` 等已全 SHA pin）；
+
+- 内容仓**安全惯例不变**：pin sha + 显式 `binary-version`/`binary-sha256`（收紧信任链）；
+- **新增**：零手填模式（`@v1.1.0` 或 `@v1` + `use-binary: true`），工具仓从 `github.action_ref` / GitHub API 自动推导版本与校验和，`checksums.txt` 为单一真源；
 - bump pin = 单行改动的 PR，PR 描述贴工具仓 release notes 链接。
 
 ---

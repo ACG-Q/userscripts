@@ -21,21 +21,41 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'discussion_comment' || github.event.issue.number != 1 }}
+    outputs:
+      changed: ${{ steps.build.outputs.changed }}
     steps:
       - uses: actions/checkout@v5
-      - name: Build site
-        uses: acg-q/userscript-console@aa02a0079a65f126cdac648156e41a4e0dc8595b
+
+      # 使用 action 的零手填二进制模式构建站点（替代原手写下载+校验步骤）
+      - name: 构建站点
+        id: build
+        uses: acg-q/userscript-console@v1.1.0
         with:
           command: build
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           use-binary: true
-      - name: Stage site structure
+
+      # ── 组装 _site ──
+      - name: 组装 _site
+        shell: bash
         run: |
           set -euo pipefail
-          mkdir _site
-          mv dist/* _site/
-          mkdir _site/dist
-          find _site -maxdepth 1 -name '*.user.js' -exec mv -t _site/dist {} +
+          if [ ! -d dist ]; then
+            echo "::error::dist/ 不存在 —— build 未产出任何内容"
+            exit 1
+          fi
+          mkdir -p _site/dist
+          # 站点页面：index.html / scripts.json / scripts/ / commands/
+          for item in dist/*; do
+            base=$(basename "$item")
+            case "$base" in
+              *.user.js) mv "$item" _site/dist/ ;;   # 安装包放 _site/dist/
+              *)          mv "$item" _site/ ;;         # 其余是站点产物
+            esac
+          done
+          echo "--- _site 结构 ---"
+          find _site -maxdepth 2 | head -30
+
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v4
         with: { path: ./_site }

@@ -17,9 +17,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
+      # 零手填二进制：@v1.1.0 + use-binary: true
       - name: Run /sync-all
         id: cmd
-        uses: acg-q/userscript-console@aa02a0079a65f126cdac648156e41a4e0dc8595b
+        uses: acg-q/userscript-console@v1.1.0
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -29,10 +30,10 @@ jobs:
           use-binary: true
       - name: Project issues
         id: proj
-        uses: acg-q/userscript-console@aa02a0079a65f126cdac648156e41a4e0dc8595b
+        uses: acg-q/userscript-console@v1.1.0
         with:
           command: project
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           use-binary: true
       - name: Commit changes
         id: commit
