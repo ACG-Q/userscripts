@@ -1,24 +1,8 @@
-# 面板历史评论清理与归档（CUTOVER §2.4 / SPEC-WORKFLOWS §2.4）
-#
-# 归档语义（SPEC-DATA §2.3）：
-#   每个命令组保留最近 N 条评论（默认 10），其余归档进 archive/commands.json 后删除。
-#   幂等键 = command_id —— 重复触发不会重复归档；归档先落盘再删评论。
-#
-# 安全设计：
-#   1. **默认 dry-run**：schedule 走 apply=true（日常维护），
-#      workflow_dispatch 额外提供 apply / keep 两个 input，
-#      其中 apply 支持显式传 'false' 做只读体检（U3-3 观察项）。
-#   2. **changed 短路**：Action 的 changed output 为 false 时，
-#      跳过提交与部署派发 —— 省 runner，也避免无意义 Pages 重建。
-#   3. **cron 可关**：把下面 schedule 段注释掉即停止定时清理，
-#      workflow_dispatch 仍可用（首次接入或排障时很有用）。
-#   4. **归档缺失不算失败**：新仓尚无 archive/ 时 cleanup 应报「无需清理」而非红。
-
----
 name: Cleanup Command Panel
 on:
   schedule:
     # 每天 UTC 03:00；注释掉即可停用定时清理（workflow_dispatch 仍可用）
+    # Daily 03:00 UTC; comment out to disable scheduled cleanup (workflow_dispatch still works)
     - cron: '0 3 * * *'
   workflow_dispatch:
     inputs:
@@ -41,6 +25,7 @@ permissions:
 concurrency:
   group: cleanup-panel
   # 不取消：定时任务撞车时排队执行，避免「清理到一半被取消」留下半截归档
+  # Don't cancel: queue scheduled runs to avoid partial archive from cancellation
   cancel-in-progress: false
 
 jobs:
@@ -52,9 +37,13 @@ jobs:
         with:
           # 归档是累积文件，历史可能被并发 push 改动；
           # 浅克隆下 git push 会被拒（fetch first），这里要完整历史。
+          # Archive is cumulative; concurrent pushes may modify history.
+          # Shallow clone causes git push rejection (fetch first), need full history.
           fetch-depth: 0
 
-      - name: 清理输入（记录本次口径，便于事后核对）
+      # 清理输入（记录本次口径，便于事后核对）
+      # Cleanup inputs (record this run's parameters for auditing)
+      - name: 清理输入 / Cleanup inputs
         id: cfg
         env:
           EVENT: ${{ github.event_name }}
@@ -64,6 +53,7 @@ jobs:
           set -euo pipefail
           if [ "$EVENT" = "workflow_dispatch" ]; then
             # 手动触发：用 input 决定，并显式落盘为 GITHUB_OUTPUT 供后续 step 引用
+            # Manual trigger: use inputs, explicitly write to GITHUB_OUTPUT for later steps
             if [ "$DISPATCH_APPLY" = "true" ]; then
               APPLY=true
             else
@@ -72,6 +62,7 @@ jobs:
             echo "手动触发：keep=$KEEP apply=$APPLY"
           else
             # 定时触发：固定真实清理（维护动作，无人值守）
+            # Scheduled trigger: fixed real cleanup (maintenance, unattended)
             APPLY=true
             KEEP=10
             echo "定时触发：keep=$KEEP apply=$APPLY"
@@ -80,7 +71,8 @@ jobs:
           echo "keep=$KEEP" >> "$GITHUB_OUTPUT"
 
       # 零手填二进制：@v1.1.0 + use-binary: true
-      - name: Archive and clean
+      # Zero-config binary: @v1.1.0 + use-binary: true
+      - name: Archive and clean / 归档与清理
         id: clean
         uses: acg-q/userscript-console@v1.1.0
         with:
@@ -90,9 +82,10 @@ jobs:
           apply: ${{ steps.cfg.outputs.apply }}
           use-binary: true
 
-      - name: 提交归档
+      # 提交归档（changed=false 说明既没删评论也没改归档 → 无需提交）
+      # Commit archive (changed=false means no comment deleted and no archive change → skip commit)
+      - name: 提交归档 / Commit archive
         id: commit
-        # changed=false 说明既没删评论也没改归档 → 无需提交
         if: steps.clean.outputs.changed == 'true'
         run: |
           set -euo pipefail
@@ -100,6 +93,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           # 白名单：只提交 archive/（SPEC-WORKFLOWS §4）
+          # Allowlist: only commit archive/
           git add archive
 
           if git diff --staged --quiet; then
@@ -114,21 +108,24 @@ jobs:
             echo "committed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: 派发站点重建
-        # 仅在真的提交了归档时才重建站点：
-        # 站点 commands/page-N.html 渲染自 archive/commands.json，
-        # 没有归档变更就不需要重建（省一次 Pages 构建）。
+      # 派发站点重建（仅在真的提交了归档时才重建站点）
+      # Dispatch site rebuild (only rebuild when archive actually committed)
+      # 站点 commands/page-N.html 渲染自 archive/commands.json，
+      # 没有归档变更就不需要重建（省一次 Pages 构建）。
+      - name: 派发站点重建 / Dispatch site rebuild
         if: steps.commit.outputs.committed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # GITHUB_TOKEN 的 push 不触发 workflow（CUTOVER §0 纪律 4），
-          # 所以归档提交后必须显式派发。
+          # GITHUB_TOKEN 的 push 不触发 workflow，所以归档提交后必须显式派发。
+          # GITHUB_TOKEN push doesn't trigger workflow, must explicitly dispatch after archive commit.
           gh workflow run deploy-pages.yml -R "${{ github.repository }}" \
             || echo "::warning::站点重建派发失败，可手动触发 deploy-pages.yml"
 
-      - name: 汇总
+      # 汇总（始终运行，打印触发来源 / changed / committed / result）
+      # Summary (always runs, prints trigger source / changed / committed / result)
+      - name: 汇总 / Summary
         if: always()
         run: |
           echo "触发=${{ github.event_name }}"
