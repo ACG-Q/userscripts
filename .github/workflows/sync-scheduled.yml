@@ -1,6 +1,8 @@
 name: Scheduled Sync
+
 on:
   workflow_dispatch:
+
 permissions:
   contents: write
   issues: write
