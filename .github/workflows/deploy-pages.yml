@@ -35,28 +35,10 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           use-binary: true
 
-      # 组装 _site 目录结构（Pages 特有，属本仓）
+      # 组装 _site 目录结构（Pages 特有，属本仓；tools/assemble_site.py）
       # Assemble _site directory structure (Pages-specific, belongs to this repo)
       - name: 组装 _site / Assemble _site
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ ! -d dist ]; then
-            echo "::error::dist/ 不存在 —— build 未产出任何内容"
-            exit 1
-          fi
-          mkdir -p _site/dist
-          # 站点页面：index.html / scripts.json / scripts/ / commands/
-          # Site pages: index.html / scripts.json / scripts/ / commands/
-          for item in dist/*; do
-            base=$(basename "$item")
-            case "$base" in
-              *.user.js) mv "$item" _site/dist/ ;;   # 安装包放 _site/dist/ / Install packages to _site/dist/
-              *)          mv "$item" _site/ ;;         # 其余是站点产物 / Rest are site artifacts
-            esac
-          done
-          echo "--- _site 结构 / _site structure ---"
-          find _site -maxdepth 2 | head -30
+        run: python tools/assemble_site.py
 
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v4
