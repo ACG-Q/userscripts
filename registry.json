@@ -1,4 +1,47 @@
 {
   "schema": 1,
-  "scripts": []
+  "scripts": [
+    {
+      "id": "39280503d459",
+      "type": "synced",
+      "name": "All-in-One Video Downloader – HD (YouTube, TikTok, Instagram, X & More)",
+      "version": "1.0.18",
+      "description": "An all-in-one, fast, and free HD video downloader. Supports video downloads from YouTube, TikTok, Douyin, Instagram, Threads, XiaoHongShu, TED, Facebook, X (formerly Twitter), and more. Enjoy seamless, high-quality downloads with no watermarks.",
+      "author": "Daniel",
+      "namespace": "",
+      "match": [],
+      "grant": [
+        "GM_openInTab",
+        "GM.openInTab",
+        "GM_xmlhttpRequest",
+        "GM_addStyle",
+        "GM_setValue",
+        "GM_getValue",
+        "GM_download",
+        "unsafeWindow"
+      ],
+      "enabled": true,
+      "created_at": "2026-10-06T08:11:47Z",
+      "updated_at": "2026-10-06T08:11:49Z",
+      "documentation": "",
+      "changelog": [
+        {
+          "version": "1.0.18",
+          "date": "2026-10-06",
+          "note": "初始同步"
+        }
+      ],
+      "discussions": [],
+      "deleted": false,
+      "issue": {
+        "number": 2,
+        "node_id": "I_kwDOU9fz6c8AAAABVTumNw",
+        "url": "https://github.com//issues/2"
+      },
+      "source_url": "https://greasyfork.org/zh-CN/scripts/563321-all-in-one-video-downloader-hd-youtube-tiktok-instagram-x-more",
+      "source_type": "greasyfork",
+      "last_synced_at": "2026-10-06T08:11:47Z",
+      "sync_enabled": true
+    }
+  ]
 }
