@@ -106,7 +106,7 @@
 git remote add origin git@github.com:<owner>/<repo>.git
 git push -u origin master
 
-# 2. 在 GitHub 网页上手动触发 init-command-panel（如果 Issue #1 不存在）
+# 2. init-command-panel 随 push 自动运行（幂等建 Issue #1）；如需手动补跑：
 gh workflow run init-command-panel.yml
 
 # 3. 检查 Pages 部署是否成功

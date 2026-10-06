@@ -30,8 +30,8 @@ uses: acg-q/userscript-console@<40位sha>   # 内容仓一律 pin sha（§5）
 
 ### 1.1 `init-command-panel.yml` —— **接入 Python（设计 D2）**
 
-`workflow_dispatch` + `issues: write` + `contents: read`（D2：统一先 checkout 才能跑仓库内脚本）+ `python tools/init_panel.py`（幂等：open issue 中已有「命令面板」则跳过）。
-**验收**：dispatch 两次，第二次应识别为「已存在」而不重复建 Issue #1。
+`push: branches [master]` + `workflow_dispatch` + `issues: write` + `contents: read`（D2：统一先 checkout 才能跑仓库内脚本）+ `python tools/init_panel.py`（幂等：open issue 中已有「命令面板」则跳过）。
+**验收**：push 后自动运行一次；dispatch 两次，第二次应识别为「已存在」而不重复建 Issue #1。
 
 ### 1.2 `validate.yml` —— **新建**（替换原 `test.yml` 的数据侧职责）
 

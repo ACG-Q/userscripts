@@ -83,7 +83,7 @@ TRIGGERS = {
     'deploy-pages.yml':        {'push','issues','issue_comment','discussion_comment','workflow_dispatch'},
     'sync-scheduled.yml':      {'workflow_dispatch'},
     'cleanup-panel.yml':       {'schedule','workflow_dispatch'},
-    'init-command-panel.yml':  {'workflow_dispatch'},
+    'init-command-panel.yml':  {'push','workflow_dispatch'},
     'validate.yml':            {'push','pull_request'},
 }
 for f, expected_keys in TRIGGERS.items():
