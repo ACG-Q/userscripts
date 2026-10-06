@@ -24,7 +24,7 @@ SPEC_PERMS = {
     'deploy-pages.yml':        {'contents':'read','pages':'write','id-token':'write','issues':'read','discussions':'read'},
     'sync-scheduled.yml':      {'contents':'write','issues':'write','actions':'write','discussions':'write'},
     'cleanup-panel.yml':       {'contents':'write','issues':'write','actions':'write'},
-    'init-command-panel.yml':  {'issues':'write'},
+    'init-command-panel.yml':  {'issues':'write','contents':'read'},
     'validate.yml':            {'contents':'read'},
 }
 for f, expected in SPEC_PERMS.items():
@@ -63,28 +63,19 @@ ic_raw = open('.github/workflows/issue-commands.yml', encoding='utf-8').read()
 if '!cancelled()' not in ic_raw:
     errors.append('issue-commands.yml: missing !cancelled() on reply step')
 
-# ── 6. set -euo pipefail on run steps ──────────────────────────────────────
-for f in ['issue-commands.yml','sync-scheduled.yml','cleanup-panel.yml']:
-    raw = open(f'.github/workflows/{f}', encoding='utf-8').read()
-    steps = re.split(r'\n      - name: ', raw)
-    for step_text in steps:
-        if 'run: |' not in step_text:
-            continue
-        step_name = step_text.split('\n')[0].strip()
-        run_body = step_text.split('run: |', 1)[1].split('\n---')[0]
-        lines = [l.strip() for l in run_body.split('\n') if l.strip()]
-        if not lines:
-            continue
-        first = lines[0]
-        if first.startswith('echo'):
-            continue
-        if 'gh workflow run' in run_body and '||' in run_body:
-            continue
-        # Reply step intentionally uses set -uo (not -e) to always post partial result
-        if step_name == 'Reply to comment':
-            continue
-        if 'set -euo pipefail' not in run_body:
-            errors.append(f'{f} [{step_name}]: missing set -euo pipefail')
+# ── 6. run 步骤必须是 tools/*.py 单行调用（设计：全量替换内联 shell）────────
+# 遍历 SPEC_PERMS（第 1 节已定义）而非 TRIGGERS（第 7 节才定义，避免 NameError）
+RUN_PATTERN = re.compile(r'^python tools/[a-z_]+\.py(\s.*)?$')
+for f in SPEC_PERMS:
+    raw, doc, _ = load_wf(f)
+    for job_name, job in (doc.get('jobs') or {}).items():
+        for step in job.get('steps') or []:
+            if 'run' not in step:
+                continue
+            run = str(step['run']).strip()
+            if not RUN_PATTERN.match(run):
+                errors.append(
+                    f'{f} [{job_name}]: run 必须是单行 python tools/*.py 调用: {run!r}')
 
 # ── 7. trigger / on: events (§2) ───────────────────────────────────────────
 TRIGGERS = {
@@ -184,6 +175,6 @@ print(f'  tool pins: {pin_str} across 5 workflows{freshness}')
 print('  permissions: 6 workflows verified')
 print('  timeouts:     5 checked')
 print('  git add:      no dangerous patterns')
-print('  euo pipefail: critical run steps covered')
+print('  run one-liner: all run steps are python tools/*.py calls')
 print('  !cancelled:   reply step guarded')
 print(f'  use-binary:   {use_binary_seen}/{USE_BINARY_EXPECTED} call sites (v1 binary)')

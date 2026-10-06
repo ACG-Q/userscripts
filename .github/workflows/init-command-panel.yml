@@ -3,26 +3,19 @@ on:
   workflow_dispatch:
 permissions:
   issues: write
+  contents: read
 
 jobs:
   init:
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    # 刻意不 checkout：contents: none 下 checkout 必失败，用 grep 判定面板是否已存在
-    # Deliberately no checkout: with contents: none checkout would fail, use grep to check if panel exists
+    # 设计 D2：统一 checkout-first，用 tools/init_panel.py 做幂等初始化
+    # D2: checkout-first; idempotent init via tools/init_panel.py
     steps:
-      # 检查命令面板是否已存在
-      # Check if command panel already exists
-      - name: Check panel existence
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          if gh issue list --state open --search "命令面板" -R ${{ github.repository }} | grep -q .; then
-            echo "面板已存在，跳过创建"
-            exit 0
-          fi
-          gh issue create \
-            --title "命令面板" \
-            --body "在此 Issue 下发送命令（如 \`/list\`、\`/add <URL>\`）以管理脚本。" \
-            --label "command-panel" \
-            -R ${{ github.repository }}
+      - uses: actions/checkout@v5
+
+      # 面板已存在则跳过，否则创建（tools/init_panel.py）
+      # Skip if panel exists, else create (tools/init_panel.py)
+      - name: Init panel
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: python tools/init_panel.py
