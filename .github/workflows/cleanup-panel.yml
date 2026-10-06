@@ -1,4 +1,5 @@
 name: Cleanup Command Panel
+
 on:
   schedule:
     - cron: '0 3 * * *'
