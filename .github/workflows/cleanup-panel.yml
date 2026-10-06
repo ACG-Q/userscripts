@@ -33,40 +33,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          # 归档是累积文件，历史可能被并发 push 改动；
-          # 浅克隆下 git push 会被拒（fetch first），这里要完整历史。
-          # Archive is cumulative; concurrent pushes may modify history.
-          # Shallow clone causes git push rejection (fetch first), need full history.
+          # 归档是累积文件，历史可能被并发 push 改动；浅克隆下 git push 会被拒，要完整历史。
+          # Archive is cumulative; shallow clone causes push rejection, need full history.
           fetch-depth: 0
 
-      # 清理输入（记录本次口径，便于事后核对）
-      # Cleanup inputs (record this run's parameters for auditing)
+      # 清理输入归一（手动触发用 inputs 默认 dry-run；定时触发固定 apply=true keep=10）
+      # Normalize inputs (dispatch uses inputs, schedule forces apply=true keep=10)
       - name: 清理输入 / Cleanup inputs
         id: cfg
         env:
           EVENT: ${{ github.event_name }}
           DISPATCH_APPLY: ${{ inputs.apply }}
           KEEP: ${{ inputs.keep }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            # 手动触发：用 input 决定，并显式落盘为 GITHUB_OUTPUT 供后续 step 引用
-            # Manual trigger: use inputs, explicitly write to GITHUB_OUTPUT for later steps
-            if [ "$DISPATCH_APPLY" = "true" ]; then
-              APPLY=true
-            else
-              APPLY=false
-            fi
-            echo "手动触发：keep=$KEEP apply=$APPLY"
-          else
-            # 定时触发：固定真实清理（维护动作，无人值守）
-            # Scheduled trigger: fixed real cleanup (maintenance, unattended)
-            APPLY=true
-            KEEP=10
-            echo "定时触发：keep=$KEEP apply=$APPLY"
-          fi
-          echo "apply=$APPLY" >> "$GITHUB_OUTPUT"
-          echo "keep=$KEEP" >> "$GITHUB_OUTPUT"
+        run: python tools/cleanup_config.py
 
       # 零手填二进制：@v1.1.0 + use-binary: true
       # Zero-config binary: @v1.1.0 + use-binary: true
@@ -80,53 +59,16 @@ jobs:
           apply: ${{ steps.cfg.outputs.apply }}
           use-binary: true
 
-      # 提交归档（changed=false 说明既没删评论也没改归档 → 无需提交）
-      # Commit archive (changed=false means no comment deleted and no archive change → skip commit)
+      # 提交归档（changed=false 或归档无差异 → committed=false 短路）
+      # Commit archive (changed=false or no archive diff → committed=false)
       - name: 提交归档 / Commit archive
         id: commit
         if: steps.clean.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        run: 'python tools/commit.py --allowlist archive --message "chore(archive): 归档命令面板历史评论"'
 
-          # 白名单：只提交 archive/（SPEC-WORKFLOWS §4）
-          # Allowlist: only commit archive/
-          git add archive
-
-          if git diff --staged --quiet; then
-            # changed=true 但归档无差异：可能是评论被删而归档已在库中
-            # （幂等键命中），此时不提交，直接放行。
-            echo "归档无实际变更，跳过提交"
-            echo "committed=false" >> "$GITHUB_OUTPUT"
-          else
-            N=$(git diff --staged --numstat | wc -l | tr -d ' ')
-            git commit -m "chore(archive): 归档命令面板历史评论（${N} 组）"
-            git push
-            echo "committed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      # 派发站点重建（仅在真的提交了归档时才重建站点）
-      # Dispatch site rebuild (only rebuild when archive actually committed)
-      # 站点 commands/page-N.html 渲染自 archive/commands.json，
-      # 没有归档变更就不需要重建（省一次 Pages 构建）。
+      # 派发站点重建（仅在真的提交了归档时；GITHUB_TOKEN push 不触发 workflow）
+      # Dispatch rebuild (only after archive commit; GITHUB_TOKEN push doesn't trigger)
       - name: 派发站点重建 / Dispatch site rebuild
         if: steps.commit.outputs.committed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          # GITHUB_TOKEN 的 push 不触发 workflow，所以归档提交后必须显式派发。
-          # GITHUB_TOKEN push doesn't trigger workflow, must explicitly dispatch after archive commit.
-          gh workflow run deploy-pages.yml -R "${{ github.repository }}" \
-            || echo "::warning::站点重建派发失败，可手动触发 deploy-pages.yml"
-
-      # 汇总（始终运行，打印触发来源 / changed / committed / result）
-      # Summary (always runs, prints trigger source / changed / committed / result)
-      - name: 汇总 / Summary
-        if: always()
-        run: |
-          echo "触发=${{ github.event_name }}"
-          echo "changed=${{ steps.clean.outputs.changed }}"
-          echo "committed=${{ steps.commit.outputs.committed }}"
-          echo "result=${{ steps.clean.outputs.result }}"
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: python tools/dispatch_deploy.py --workflow deploy-pages.yml
