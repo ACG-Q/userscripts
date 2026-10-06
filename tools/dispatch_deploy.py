@@ -24,7 +24,10 @@ def main(api_func=gh_api, argv=None) -> int:
     ref = args.ref or os.environ.get("GITHUB_REF_NAME") or "master"
 
     status, body = api_func(
-        "POST", f"/repos/{repository}/workflows/{args.workflow}/dispatches", token, {"ref": ref}
+        "POST",
+        f"/repos/{repository}/actions/workflows/{args.workflow}/dispatches",
+        token,
+        {"ref": ref},
     )
     if status in (200, 201, 204):
         print(f"已派发 {args.workflow} @ {ref}")

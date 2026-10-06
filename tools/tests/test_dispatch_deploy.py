@@ -34,7 +34,7 @@ class DispatchTest(unittest.TestCase):
         code, api = self._run(204)
         self.assertEqual(code, 0)
         self.assertEqual(
-            api.calls, [("POST", "/repos/o/r/workflows/deploy-pages.yml/dispatches",
+            api.calls, [("POST", "/repos/o/r/actions/workflows/deploy-pages.yml/dispatches",
                          {"ref": "master"})]
         )
 
