@@ -16,7 +16,6 @@
 | `pages_assets.py` | 静态资源 |
 | `userscript_manager/**` | Python 包 |
 | `tests/**` | Python 测试 |
-| `tools/**` | 工具脚本（含 `validate_graphql.py`） |
 | `requirements.txt` | 生产依赖 |
 | `requirements-dev.txt` | 开发依赖 |
 | `ruff.toml` | linter 配置 |
@@ -37,6 +36,7 @@
 | `scripts/synced/**` | 同步脚本源码 |
 | `dist/*.user.js` | 安装包（**必须入库**） |
 | `archive/commands.json` | 命令历史归档 |
+| `tools/**` | 辅助 Python 脚本（gate/commit/dispatch_deploy/reply/assemble_site/cleanup_config/init_panel/validate_registry/validate_workflows）+ `tools/tests/` 单元测试 |
 | `docs/index.md` | 脚本文档索引 |
 | `README.md` | 面向用户的安装/使用指南 |
 | `.github/workflows/*.yml` | 薄壳 workflow（5 条） |
@@ -49,8 +49,8 @@
 
 ```bash
 # 工具仓（检查迁出路径不存在）
-git ls-tree -r HEAD --name-only | grep -E '(console\.py|manager\.py|project_issues\.py|build_pages\.py|panel_cleanup\.py|pages_assets\.py|userscript_manager|tests/|tools/|requirements|’ruff|’mypy|.coveragerc|docs/commands|docs/design|docs/code-review)' || echo "✓ 迁出路径已清空"
+git ls-tree -r HEAD --name-only | grep -E '(console\.py|manager\.py|project_issues\.py|build_pages\.py|panel_cleanup\.py|pages_assets\.py|userscript_manager|tests/|requirements|’ruff|’mypy|.coveragerc|docs/commands|docs/design|docs/code-review)' || echo "✓ 迁出路径已清空"
 
 # 本仓（检查保留路径存在）
-ls registry.json scripts/ dist/ archive/ docs/index.md README.md .github/workflows/ 2>/dev/null && echo "✓ 保留路径存在"
+ls registry.json scripts/ dist/ archive/ docs/index.md README.md .github/workflows/ tools/*.py 2>/dev/null && echo "✓ 保留路径存在"
 ```

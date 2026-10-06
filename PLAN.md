@@ -26,7 +26,7 @@
 
 | ID | 任务 | 产出 | 验收 | 状态 |
 |---|---|---|---|---|
-| U1-1 | **确认迁出路径清单**（工具仓 `filter-repo` 参数的最终签字）：`console.py manager.py project_issues.py build_pages.py panel_cleanup.py pages_assets.py userscript_manager/ tests/ tools/ requirements.txt requirements-dev.txt ruff.toml mypy.ini .coveragerc docs/commands/ docs/design.md docs/code-review-2026-10-03.md` | 清单 v1（存 `docs-ownership.md`） | 与工具仓 `PLAN C1-1` 完全一致 | ✅ |
+| U1-1 | **确认迁出路径清单**（工具仓 `filter-repo` 参数的最终签字）：`console.py manager.py project_issues.py build_pages.py panel_cleanup.py pages_assets.py userscript_manager/ tests/ tools/ requirements.txt requirements-dev.txt ruff.toml mypy.ini .coveragerc docs/commands/ docs/design.md docs/code-review-2026-10-03.md` | 清单 v1（存 `docs-ownership.md`） | 与工具仓 `PLAN C1-1` 完全一致 | ✅ **（U4-1 修订：`tools/` 不迁，保留本仓作辅助脚本，见 2026-10-06 设计）** |
 | U1-2 | **不改动本仓**：抽取是「新仓 clone + filter-repo」，本仓历史与文件原样保留 | — | 本仓 `git status` 干净、`git log` 未被改写 | ✅ |
 | U1-3 | 同步评审：工具仓的 `tests/snapshot/` 快照基线与 `tests/fixtures/`、`tools/validate_graphql.py` 确实已在新仓可用 | 抽取完整 | 新仓 CI 首跑绿 | ✅ |
 | U1-4 | 记录两仓基线 SHA 到 `BASELINE.md`（`tool@<sha>` / `content@<sha>`） | 可追溯起点 | 双仓 SHA 入档 | ✅ |
@@ -82,8 +82,8 @@
 
 | ID | 任务 | 产出 | 验收 | 状态 |
 |---|---|---|---|---|
-| U4-1 | 删除迁出路径（`U0-3` 清单中的全部项） | 本仓只剩数据 + workflow + 用户文档 | `git grep -l 'def main' -- '*.py'` 无结果；`tests/` 不存在 | ⏳ 待观察期结束后 |
-| U4-2 | 删除 `requirements.txt`、`ruff.toml`、`mypy.ini`、`.coveragerc`；`.gitignore` 去掉测试相关条目 | 配置瘦身 | CI 不再 `pip install` | ⏳ 待观察期结束后 |
+| U4-1 | 删除迁出路径（`U0-3` 清单中的全部项，**但 `tools/` 除外**） | 本仓只剩数据 + workflow + 辅助 Python + 用户文档 | 业务 Python（`manager.py` 等）不存在；`tools/*.py` 保留；`tests/` 不存在 | ⏳ 待观察期结束后 |
+| U4-2 | 删除 `requirements.txt`、`ruff.toml`、`mypy.ini`、`.coveragerc`；`.gitignore` 去掉测试相关条目 | 配置瘦身 | CI 不再 `pip install`（`tools/*.py` 纯标准库；本地 `validate_workflows.py` 沿用既有 `PyYAML`） | ⏳ 待观察期结束后 |
 | U4-3 | `test.yml` → `validate.yml`（纯 `doctor` + registry 解析），**移除四道代码门禁**（它们已属工具仓） | 数据侧 CI | CI 时长 < 30s；故意破坏数据会红 | ✅（已在 Stage 0 实现） |
 | U4-4 | `docs/` 落位：本仓 `docs/index.md` 改为**脚本文档索引**（链各脚本 README + 链工具仓命令文档）；确认站点导航 `文档` 链接指向本仓 `docs/index.md` | 文档导航正确 | 打开站点导航 `文档` → 落在本仓 docs | ✅（已在 Stage 0 实现） |
 | U4-5 | 版本 pin 策略落档：所有 `uses:` 改为 commit-sha（外部用户文档给 `@v1` 用法） | 安全基线 | `grep -rn 'uses: acg-q/userscript-console@' .github` 全为 40 位 sha | ✅（已在 Stage 0 实现） |

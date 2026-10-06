@@ -17,19 +17,20 @@ concurrency:
 uses: acg-q/userscript-console@<40位sha>   # 内容仓一律 pin sha（§5）
 ```
 
-四条纪律（**评审 checklist**）：
+五条纪律（**评审 checklist**）：
 1. `permissions` 只列本条需要的（见 §3 对照表）；
 2. `git add` **只用路径白名单**，禁止 `.`/`-A`（`cleanup` 也只 `archive/commands.json`，但历史教训下允许 `git add archive`）；
-3. 失败路径必须有回帖/告警（`!cancelled()`、`set -euo pipefail`）；
-4. `GITHUB_TOKEN` 的 push 不触发 workflow → 需要重建站点时 `gh workflow run deploy-pages.yml`。
+3. 失败路径必须有回帖/告警（`!cancelled()` 回帖步骤；脚本失败以非 0 退出码让 job 变红）；
+4. `GITHUB_TOKEN` 的 push 不触发 workflow → 需要重建站点时运行 `python tools/dispatch_deploy.py --workflow deploy-pages.yml`；
+5. 所有 `run:` 步骤必须是**一行式 `python tools/*.py`**，禁止内联 shell 逻辑（`validate_workflows.py` 规则 6 自动校验）。
 
 ---
 
 ## 1. 未接入 Action 的两条
 
-### 1.1 `init-command-panel.yml` —— **完全不动**
+### 1.1 `init-command-panel.yml` —— **接入 Python（设计 D2）**
 
-保持现状：`workflow_dispatch` + `issues: write` + **刻意不 checkout**（`contents: none` 下 checkout 必失败，见其内注释）+ 用 `grep 404` 判定面板是否已存在。
+`workflow_dispatch` + `issues: write` + `contents: read`（D2：统一先 checkout 才能跑仓库内脚本）+ `python tools/init_panel.py`（幂等：open issue 中已有「命令面板」则跳过）。
 **验收**：dispatch 两次，第二次应识别为「已存在」而不重复建 Issue #1。
 
 ### 1.2 `validate.yml` —— **新建**（替换原 `test.yml` 的数据侧职责）
@@ -46,8 +47,7 @@ jobs:
     steps:
       - uses: actions/checkout@<sha>
       - name: registry 可解析且结构合法
-        run: |
-          python -c "import json,sys; d=json.load(open('registry.json',encoding='utf-8')); assert isinstance(d.get('scripts'),list); [(_ for _ in ()).throw(SystemExit('缺 id/type: '+str(s))) for s in d['scripts'] if not s.get('id') or s.get('type') not in ('self','synced')]"
+        run: python tools/validate_registry.py
       - name: 数据一致性（doctor）
         uses: acg-q/userscript-console@v1.1.0
         with: { command: doctor, github-token: "${{ secrets.GITHUB_TOKEN }}", use-binary: true }
@@ -62,36 +62,43 @@ jobs:
 
 ```yaml
 name: Issue Commands Manager
+
 on:
   issue_comment: { types: [created] }
-permissions: { contents: write, issues: write, actions: write, discussions: write }
-concurrency: { group: issue-commands, cancel-in-progress: false }
+permissions:
+  contents: write
+  issues: write
+  actions: write
+  discussions: write
+concurrency:
+  group: issue-commands
+  cancel-in-progress: false
 
 jobs:
   execute:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # 逐字保留：仅命令面板 Issue #1、排除 PR 评论
+    # 仅命令面板 Issue #1、排除 PR 评论
+    # Only command panel Issue #1, exclude PR comments
     if: ${{ !github.event.issue.pull_request && github.event.issue.number == 1 }}
     steps:
-      # ① 第一道门禁（最小权限原则：先比较再执行；未授权直接删评论）
+      # ① 统一先 checkout（设计 D2：门禁脚本 tools/gate.py 在仓库内）
+      # Checkout first (D2: gate script lives in the repo)
+      - uses: actions/checkout@v5
+
+      # ② 权限门禁：未授权删除该评论（tools/gate.py）
+      # Permission gate: delete comment if unauthorized (tools/gate.py)
       - name: Permission gate
         id: gate
         env:
           COMMENT_USER: ${{ github.event.comment.user.login }}
           REPO_OWNER: ${{ github.repository_owner }}
-        run: |
-          if [ "$COMMENT_USER" == "$REPO_OWNER" ]; then
-            echo "authorized=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "authorized=false" >> "$GITHUB_OUTPUT"
-            gh api -X DELETE "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}"
-          fi
+          COMMENT_ID: ${{ github.event.comment.id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python tools/gate.py
 
-      - uses: actions/checkout@<sha>
-        if: steps.gate.outputs.authorized == 'true'
-
-      # ② 执行命令（第二道门禁在工具内复核 comment-user == repo-owner）
+      # ③ 执行命令（零手填二进制：@v1.1.0 + use-binary: true）
+      # Run command (zero-config binary: @v1.1.0 + use-binary: true)
       - name: Run command
         id: cmd
         if: steps.gate.outputs.authorized == 'true'
@@ -99,61 +106,49 @@ jobs:
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          comment-body: ${{ github.event.comment.body }}   # 经 input→env 传递，绝不内插 shell
+          comment-body: ${{ github.event.comment.body }}
           comment-user: ${{ github.event.comment.user.login }}
           issue-number: ${{ github.event.issue.number }}
           use-binary: true
 
-      # ③ registry → Issues/版本帖 对账（命令可能改了 registry）
+      # ④ 投影对账（命令可能改了 registry）
+      # Project issues (command may have changed registry)
       - name: Project issues
         id: proj
         if: steps.gate.outputs.authorized == 'true'
         uses: acg-q/userscript-console@v1.1.0
-        with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}", use-binary: true }
+        with:
+          command: project
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          use-binary: true
 
-      # ④ 提交（⚠️ 路径白名单；changed=false 时不提交）
+      # ⑤ 提交（路径白名单，changed=false 时不提交）
+      # Commit (path allowlist, skip if changed=false)
       - name: Commit changes
         id: commit
         if: steps.gate.outputs.authorized == 'true' && steps.cmd.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add registry.json scripts dist archive
-          if git diff --staged --quiet; then
-            echo "committed=false" >> "$GITHUB_OUTPUT"
-          else
-            git commit -m "Apply command: ${{ github.event.comment.user.login }}"
-            git push
-            echo "committed=true" >> "$GITHUB_OUTPUT"
-          fi
+        run: >-
+          python tools/commit.py --allowlist registry.json scripts dist archive
+          --message "Apply command: ${{ github.event.comment.user.login }}"
 
-      # ⑤ GITHUB_TOKEN push 不触发 → 显式派发部署
+      # ⑥ 派发部署（GITHUB_TOKEN push 不触发 workflow，需显式派发）
+      # Trigger deploy (GITHUB_TOKEN push doesn't trigger workflow, must dispatch explicitly)
       - name: Trigger site deploy
         if: steps.gate.outputs.authorized == 'true' && steps.commit.outputs.committed == 'true'
-        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: |
-          gh workflow run deploy-pages.yml -R ${{ github.repository }} \
-            || echo "⚠️ 站点部署派发失败（不阻断），可手动触发" 
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: python tools/dispatch_deploy.py --workflow deploy-pages.yml
 
-      # ⑥ 失败也回帖（逐字沿用现规范）
+      # ⑦ 失败也回帖（逐字沿用现规范）
+      # Reply even on failure (keep existing spec)
       - name: Reply to comment
         if: ${{ !cancelled() && steps.gate.outputs.authorized == 'true' }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           RESULT: ${{ steps.cmd.outputs.result }}
           PROJ: ${{ steps.proj.outputs.result }}
           CMD_OK: ${{ steps.cmd.outcome }}
-        run: |
-          set -uo pipefail
-          if [ -n "$RESULT" ]; then BODY="$RESULT"; else BODY="操作完成"; fi
-          if [ "$CMD_OK" != "success" ] && [ "$CMD_OK" != "skipped" ]; then
-            BODY="⚠️ 命令执行失败（Run command: $CMD_OK），请查看本次运行日志。"$'\n\n'"$BODY"
-          fi
-          if [ -n "$PROJ" ]; then BODY="$BODY"$'\n\n'"$PROJ"; fi
-          gh issue comment "$ISSUE_NUMBER" -R ${{ github.repository }} \
-            --body "**执行结果：**"$'\n'"$BODY"
+        run: python tools/reply.py
 ```
 
 **验收**：① `/list` → 正常回帖、`committed=false`（无改动）；② `/add <code>` → registry+scripts+dist 三处 diff、回帖含 ID、站点重建；③ 非拥有者评论 → 被删除、无回帖。
@@ -166,32 +161,45 @@ on:
   push: { branches: [master] }
   issues: { types: [opened, edited, closed, reopened] }
   issue_comment: { types: [created, edited, deleted] }
-  discussion_comment: { types: [created] }   # 版本帖新评论 → 重建（一条评论只触发一次）
+  discussion_comment: { types: [created] }
   workflow_dispatch:
-permissions: { contents: read, pages: write, id-token: write, issues: read, discussions: read }
-concurrency: { group: pages, cancel-in-progress: false }
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  issues: read
+  discussions: read
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # 逐字保留：命令面板 #1 的动态不进站点；discussion_comment 无 issue 上下文需显式放行
+    # 命令面板 #1 的动态不进站点；discussion_comment 无 issue 上下文需显式放行
+    # Skip command panel #1; discussion_comment needs explicit allow (no issue context)
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'discussion_comment' || github.event.issue.number != 1 }}
     steps:
-      - uses: actions/checkout@<sha>
-      - name: Build site
+      - uses: actions/checkout@v5
+
+      # 使用 action 的零手填二进制模式构建站点（替代原手写下载+校验步骤）
+      # Use action's zero-config binary mode to build site (replaces manual download+verify)
+      - name: 构建站点 / Build site
+        id: build
         uses: acg-q/userscript-console@v1.1.0
-        with: { command: build, github-token: "${{ secrets.GITHUB_TOKEN }}", use-binary: true }
-      # ── 以下 _site 组装逐字保留（Pages 特有，属本仓） ──
-      - name: Stage site structure
-        run: |
-          set -euo pipefail
-          mkdir _site
-          mv dist/* _site/
-          mkdir _site/dist
-          find _site -maxdepth 1 -name '*.user.js' -exec mv -t _site/dist {} +
-      - uses: actions/configure-pages@<sha>
-      - uses: actions/upload-pages-artifact@<sha>
+        with:
+          command: build
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          use-binary: true
+
+      # 组装 _site 目录结构（Pages 特有，属本仓；tools/assemble_site.py）
+      # Assemble _site directory structure (Pages-specific, belongs to this repo)
+      - name: 组装 _site / Assemble _site
+        run: python tools/assemble_site.py
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v4
         with: { path: ./_site }
 
   deploy:
@@ -201,7 +209,7 @@ jobs:
     environment: { name: github-pages, url: "${{ steps.d.outputs.page_url }}" }
     steps:
       - id: d
-        uses: actions/deploy-pages@<sha>
+        uses: actions/deploy-pages@v5
 ```
 
 **验收**：站点三件套可访问（`index.html` / `scripts.json` / `commands/page-1.html`）；版本帖评论后 ~30s 重建；`build` 失败 → job 红（不得被 `|| true` 掩盖）。
@@ -212,16 +220,26 @@ jobs:
 name: Scheduled Sync
 on:
   workflow_dispatch:
-  # schedule: { cron: '0 3 * * 1' }   # 沿用现状：默认注释、手动触发
-permissions: { contents: write, issues: write, actions: write, discussions: write }
-concurrency: { group: scheduled-sync, cancel-in-progress: false }
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+  discussions: write
+concurrency:
+  group: scheduled-sync
+  cancel-in-progress: false
+
 jobs:
   sync-all:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@<sha>
-      - name: Run /sync-all        # 身份注入与原版一致：以仓库拥有者名义执行
+      - uses: actions/checkout@v5
+
+      # 执行 /sync-all（身份注入与原版一致：以仓库拥有者名义执行）
+      # Run /sync-all (identity injected as repo owner, same as before)
+      - name: Run /sync-all
         id: cmd
         uses: acg-q/userscript-console@v1.1.0
         with:
@@ -231,26 +249,29 @@ jobs:
           comment-user: ${{ github.repository_owner }}
           issue-number: '1'
           use-binary: true
+
+      # 投影对账
+      # Project issues
       - name: Project issues
         id: proj
         uses: acg-q/userscript-console@v1.1.0
-        with: { command: project, github-token: "${{ secrets.GITHUB_TOKEN }}", use-binary: true }
+        with:
+          command: project
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          use-binary: true
+
+      # 提交变更（白名单 registry/scripts/dist；无更新则 committed=false 短路）
+      # Commit changes (allowlist; committed=false short-circuits when no update)
       - name: Commit changes
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add registry.json scripts dist
-          if git diff --staged --quiet; then echo "无更新"; else
-            git commit -m "chore: 同步第三方脚本"; git push; echo "pushed=true" >> "$GITHUB_OUTPUT"
-          fi
         id: commit
+        run: 'python tools/commit.py --allowlist registry.json scripts dist --message "chore: 同步第三方脚本"'
+
+      # 派发站点部署（仅在真提交后）
+      # Trigger site deploy (only after a real commit)
       - name: Trigger site deploy
-        if: steps.commit.outputs.pushed == 'true'
-        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: |
-          gh workflow run deploy-pages.yml -R ${{ github.repository }} \
-            || echo "⚠️ 派发失败（不阻断）"
+        if: steps.commit.outputs.committed == 'true'
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: python tools/dispatch_deploy.py --workflow deploy-pages.yml
 ```
 **验收**：dispatch 后 `registry.json` 中 `last_synced_at` 更新；无变化时输出「无更新」且不提交。
 
@@ -263,7 +284,7 @@ jobs:
 > - `actions/checkout` 加 `fetch-depth: 0` —— 归档是累积文件，浅克隆下 `git push` 会被拒（fetch first）。
 > - 提交步骤加 `id: commit`，仅在 Action 的 `changed == 'true'` 时执行；
 >   部署派发进一步以 `committed == 'true'` 为条件 —— 没有归档变更就不重建站点。
-> - 末尾加 `if: always()` 的汇总步骤，打印触发来源 / changed / committed / result，便于事后核对。
+> - 无汇总步骤：各脚本（`cleanup_config.py`/`commit.py`/`dispatch_deploy.py`）自身打印关键日志，触发来源由 `cleanup_config.py` 的 `触发=...` 行给出。
 
 ```yaml
 name: Cleanup Command Panel
@@ -276,28 +297,48 @@ on:
         description: 'true=真正删除超期评论；false=dry-run 只体检（默认 dry-run，更安全）'
         type: boolean
         default: false
+        required: false
       keep:
-        description: '每个命令组保留的最近评论数'
+        description: '每个命令组保留的最近评论数（≤ 组内评论总数时不会删除任何评论）'
         type: string
         default: '10'
-permissions: { contents: write, issues: write, actions: write }
-concurrency: { group: cleanup-panel, cancel-in-progress: false }
+        required: false
+
+permissions:
+  contents: write   # 提交 archive/commands.json
+  issues: write     # 删除命令面板历史评论
+  actions: write    # 派发 deploy-pages.yml
+
+concurrency:
+  group: cleanup-panel
+  # 不取消：定时任务撞车时排队执行，避免「清理到一半被取消」留下半截归档
+  # Don't cancel: queue scheduled runs to avoid partial archive from cancellation
+  cancel-in-progress: false
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@<sha>
-        with: { fetch-depth: 0 }
+      - uses: actions/checkout@v5
+        with:
+          # 归档是累积文件，历史可能被并发 push 改动；浅克隆下 git push 会被拒，要完整历史。
+          # Archive is cumulative; shallow clone causes push rejection, need full history.
+          fetch-depth: 0
 
-      - name: 清理输入（记录本次口径，便于事后核对）
+      # 清理输入归一（手动触发用 inputs 默认 dry-run；定时触发固定 apply=true keep=10）
+      # Normalize inputs (dispatch uses inputs, schedule forces apply=true keep=10)
+      - name: 清理输入 / Cleanup inputs
         id: cfg
-        run: |
-          set -euo pipefail
-          # 手动触发用 input（默认 dry-run）；定时触发固定 apply=true
-          # ... 输出 apply / keep 到 $GITHUB_OUTPUT
+        env:
+          EVENT: ${{ github.event_name }}
+          DISPATCH_APPLY: ${{ inputs.apply }}
+          KEEP: ${{ inputs.keep }}
+        run: python tools/cleanup_config.py
 
-      - name: Archive and clean
+      # 零手填二进制：@v1.1.0 + use-binary: true
+      # Zero-config binary: @v1.1.0 + use-binary: true
+      - name: Archive and clean / 归档与清理
         id: clean
         uses: acg-q/userscript-console@v1.1.0
         with:
@@ -307,23 +348,19 @@ jobs:
           apply: ${{ steps.cfg.outputs.apply }}
           use-binary: true
 
-      - name: 提交归档
+      # 提交归档（changed=false 或归档无差异 → committed=false 短路）
+      # Commit archive (changed=false or no archive diff → committed=false)
+      - name: 提交归档 / Commit archive
         id: commit
         if: steps.clean.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          git add archive
-          if git diff --staged --quiet; then echo "committed=false" >> "$GITHUB_OUTPUT"
-          else git commit -m "chore(archive): 归档命令面板历史评论"; git push; echo "committed=true" >> "$GITHUB_OUTPUT"; fi
+        run: 'python tools/commit.py --allowlist archive --message "chore(archive): 归档命令面板历史评论"'
 
-      - name: 派发站点重建
+      # 派发站点重建（仅在真的提交了归档时；GITHUB_TOKEN push 不触发 workflow）
+      # Dispatch rebuild (only after archive commit; GITHUB_TOKEN push doesn't trigger)
+      - name: 派发站点重建 / Dispatch site rebuild
         if: steps.commit.outputs.committed == 'true'
-        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: gh workflow run deploy-pages.yml -R "${{ github.repository }}" || echo "::warning::派发失败"
-
-      - name: 汇总
-        if: always()
-        run: echo "changed=${{ steps.clean.outputs.changed }} …"
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: python tools/dispatch_deploy.py --workflow deploy-pages.yml
 ```
 
 **验收**：
@@ -341,7 +378,7 @@ jobs:
 | `deploy-pages.yml` | `contents: read` `pages: write` `id-token: write` `issues: read`（统计）`discussions: read`（版本帖评论拉取） | 缺 discussions: read → 详情页版本切换回退到 Issue 面板（真实事故） |
 | `sync-scheduled.yml` | `contents: write` `issues: write` `actions: write` `discussions: write` | 同上两条 |
 | `cleanup-panel.yml` | `contents: write` `issues: write` `actions: write` | 缺 actions → 归档后站点不自动刷新（真实事故） |
-| `init-command-panel.yml` | `issues: write` | 缺 → 无法建面板 |
+| `init-command-panel.yml` | `issues: write`（建面板）`contents: read`（checkout 读 `tools/*.py`） | 缺 issues → 无法建面板；缺 contents → checkout 失败 |
 | `validate.yml` | `contents: read` | — |
 
 > **每次改权限都要在 PR 描述里引用本表**；三次真实 403 事故（sync discussions、deploy discussions read、cleanup actions）都源于此。
@@ -356,6 +393,8 @@ jobs:
 | 同步后 | `registry.json scripts dist` |
 | 清理归档后 | `archive` |
 | **禁止** | `.`、`-A`、`--all`（会把无关工作区状态推上去） |
+
+> 白名单现由 `tools/commit.py --allowlist` 执行：yml 里不再出现 `git add` 字样，脚本内部固定 `git config` 身份 + 有暂存变更才 commit/push。
 
 `changed=false` 时**跳过提交步骤**：`issue-commands.yml` 用 outputs 条件短路（§2.1④）；`sync`/`cleanup` 无 changed 短路，由步骤内 `git diff --staged --quiet` 兜底防空提交——两种防线都要保留，不要只留其一。
 
@@ -396,7 +435,7 @@ with:
 - [ ] `git add` 在 §4 白名单内（grep 无 `add .`/`-A`/`--all`）
 - [ ] `timeout-minutes`、`concurrency.group` 与原版一致
 - [ ] 触发器 `on:` 与原版**逐字**一致（含 `discussion_comment: [created]`、`if` 条件）
-- [ ] 失败路径：`set -euo pipefail`；需要回帖的有 `!cancelled()`
+- [ ] 失败路径：`run:` 为一行式 `python tools/*.py`（`validate_workflows.py` 自动校验）；需要回帖的有 `!cancelled()`
 - [ ] `gh workflow run deploy-pages.yml` 文件名未因改名失效
 - [ ] 真实事件端到端跑通一次（见各节「验收」）
 - [ ] `git status` 在运行后只出现预期路径
