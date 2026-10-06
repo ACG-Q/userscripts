@@ -19,28 +19,22 @@ jobs:
     # Only command panel Issue #1, exclude PR comments
     if: ${{ !github.event.issue.pull_request && github.event.issue.number == 1 }}
     steps:
-      # ① 第一道门禁：比较评论者与仓库拥有者，未授权直接删评论
-      # Permission gate: compare commenter with repo owner, delete comment if unauthorized
+      # ① 统一先 checkout（设计 D2：门禁脚本 tools/gate.py 在仓库内）
+      # Checkout first (D2: gate script lives in the repo)
+      - uses: actions/checkout@v5
+
+      # ② 权限门禁：未授权删除该评论（tools/gate.py）
+      # Permission gate: delete comment if unauthorized (tools/gate.py)
       - name: Permission gate
         id: gate
         env:
           COMMENT_USER: ${{ github.event.comment.user.login }}
           REPO_OWNER: ${{ github.repository_owner }}
-        run: |
-          set -euo pipefail
-          if [ "$COMMENT_USER" == "$REPO_OWNER" ]; then
-            echo "authorized=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "authorized=false" >> "$GITHUB_OUTPUT"
-            gh api -X DELETE "repos/${{ github.repository }}/issues/comments/${{ github.event.comment.id }}"
-          fi
+          COMMENT_ID: ${{ github.event.comment.id }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python tools/gate.py
 
-      # Checkout 仅在授权后执行（最小权限）
-      # Checkout only after authorization (least privilege)
-      - uses: actions/checkout@v5
-        if: steps.gate.outputs.authorized == 'true'
-
-      # ② 执行命令（零手填二进制：@v1.1.0 + use-binary: true）
+      # ③ 执行命令（零手填二进制：@v1.1.0 + use-binary: true）
       # Run command (zero-config binary: @v1.1.0 + use-binary: true)
       - name: Run command
         id: cmd
@@ -54,7 +48,7 @@ jobs:
           issue-number: ${{ github.event.issue.number }}
           use-binary: true
 
-      # ③ 投影对账（命令可能改了 registry）
+      # ④ 投影对账（命令可能改了 registry）
       # Project issues (command may have changed registry)
       - name: Project issues
         id: proj
@@ -65,49 +59,30 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           use-binary: true
 
-      # ④ 提交（路径白名单，changed=false 时不提交）
+      # ⑤ 提交（路径白名单，changed=false 时不提交）
       # Commit (path allowlist, skip if changed=false)
       - name: Commit changes
         id: commit
         if: steps.gate.outputs.authorized == 'true' && steps.cmd.outputs.changed == 'true'
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add registry.json scripts dist archive
-          if git diff --staged --quiet; then
-            echo "committed=false" >> "$GITHUB_OUTPUT"
-          else
-            git commit -m "Apply command: ${{ github.event.comment.user.login }}"
-            git push
-            echo "committed=true" >> "$GITHUB_OUTPUT"
-          fi
+        run: >-
+          python tools/commit.py --allowlist registry.json scripts dist archive
+          --message "Apply command: ${{ github.event.comment.user.login }}"
 
-      # ⑤ 派发部署（GITHUB_TOKEN push 不触发 workflow，需显式派发）
+      # ⑥ 派发部署（GITHUB_TOKEN push 不触发 workflow，需显式派发）
       # Trigger deploy (GITHUB_TOKEN push doesn't trigger workflow, must dispatch explicitly)
       - name: Trigger site deploy
         if: steps.gate.outputs.authorized == 'true' && steps.commit.outputs.committed == 'true'
-        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: |
-          gh workflow run deploy-pages.yml -R ${{ github.repository }} \
-            || echo "⚠️ 站点部署派发失败（不阻断），可手动触发"
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: python tools/dispatch_deploy.py --workflow deploy-pages.yml
 
-      # ⑥ 失败也回帖（逐字沿用现规范）
+      # ⑦ 失败也回帖（逐字沿用现规范）
       # Reply even on failure (keep existing spec)
       - name: Reply to comment
         if: ${{ !cancelled() && steps.gate.outputs.authorized == 'true' }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           RESULT: ${{ steps.cmd.outputs.result }}
           PROJ: ${{ steps.proj.outputs.result }}
           CMD_OK: ${{ steps.cmd.outcome }}
-        run: |
-          set -uo pipefail
-          if [ -n "$RESULT" ]; then BODY="$RESULT"; else BODY="操作完成"; fi
-          if [ "$CMD_OK" != "success" ] && [ "$CMD_OK" != "skipped" ]; then
-            BODY="⚠️ 命令执行失败（Run command: $CMD_OK），请查看本次运行日志。"$'\n\n'"$BODY"
-          fi
-          if [ -n "$PROJ" ]; then BODY="$BODY"$'\n\n'"$PROJ"; fi
-          gh issue comment "$ISSUE_NUMBER" -R ${{ github.repository }} \
-            --body "**执行结果：**"$'\n'"$BODY"
+        run: python tools/reply.py
