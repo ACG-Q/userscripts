@@ -19,9 +19,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # 零手填二进制：@v1.1.0 + use-binary: true
-      # Zero-config binary: @v1.1.0 + use-binary: true
-      - name: Run /sync-all / 执行同步
+      # 执行 /sync-all（身份注入与原版一致：以仓库拥有者名义执行）
+      # Run /sync-all (identity injected as repo owner, same as before)
+      - name: Run /sync-all
         id: cmd
         uses: acg-q/userscript-console@v1.1.0
         with:
@@ -34,7 +34,7 @@ jobs:
 
       # 投影对账
       # Project issues
-      - name: Project issues / 投影对账
+      - name: Project issues
         id: proj
         uses: acg-q/userscript-console@v1.1.0
         with:
@@ -42,24 +42,15 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           use-binary: true
 
-      # 提交变更
-      # Commit changes
-      - name: Commit changes / 提交变更
+      # 提交变更（白名单 registry/scripts/dist；无更新则 committed=false 短路）
+      # Commit changes (allowlist; committed=false short-circuits when no update)
+      - name: Commit changes
         id: commit
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add registry.json scripts dist
-          if git diff --staged --quiet; then echo "无更新"; else
-            git commit -m "chore: 同步第三方脚本"; git push; echo "pushed=true" >> "$GITHUB_OUTPUT"
-          fi
+        run: 'python tools/commit.py --allowlist registry.json scripts dist --message "chore: 同步第三方脚本"'
 
-      # 派发站点部署
-      # Trigger site deploy
-      - name: Trigger site deploy / 派发站点部署
-        if: steps.commit.outputs.pushed == 'true'
-        env: { GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: |
-          gh workflow run deploy-pages.yml -R ${{ github.repository }} \
-            || echo "⚠️ 派发失败（不阻断）"
+      # 派发站点部署（仅在真提交后）
+      # Trigger site deploy (only after a real commit)
+      - name: Trigger site deploy
+        if: steps.commit.outputs.committed == 'true'
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: python tools/dispatch_deploy.py --workflow deploy-pages.yml
