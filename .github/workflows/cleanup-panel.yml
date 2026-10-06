@@ -48,11 +48,11 @@ jobs:
           KEEP: ${{ inputs.keep }}
         run: python tools/cleanup_config.py
 
-      # 零手填二进制：@v1.1.0 + use-binary: true
-      # Zero-config binary: @v1.1.0 + use-binary: true
+      # 零手填二进制：@v1.1.2 + use-binary: true
+      # Zero-config binary: @v1.1.2 + use-binary: true
       - name: Archive and clean / 归档与清理
         id: clean
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}

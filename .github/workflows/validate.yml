@@ -20,10 +20,10 @@ jobs:
       - name: registry 可解析且结构合法 / Validate registry structure
         run: python tools/validate_registry.py
 
-      # 数据一致性（doctor）——零手填二进制：@v1.1.0 + use-binary: true
-      # Data consistency (doctor) — zero-config binary: @v1.1.0 + use-binary: true
+      # 数据一致性（doctor）——零手填二进制：@v1.1.2 + use-binary: true
+      # Data consistency (doctor) — zero-config binary: @v1.1.2 + use-binary: true
       - name: 数据一致性（doctor） / Data consistency check
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: doctor
           github-token: "${{ secrets.GITHUB_TOKEN }}"

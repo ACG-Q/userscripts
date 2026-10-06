@@ -29,7 +29,7 @@ jobs:
       # Use action's zero-config binary mode to build site (replaces manual download+verify)
       - name: 构建站点 / Build site
         id: build
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: build
           github-token: ${{ secrets.GITHUB_TOKEN }}

@@ -24,7 +24,7 @@ jobs:
       # Run /sync-all (identity injected as repo owner, same as before)
       - name: Run /sync-all
         id: cmd
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -37,7 +37,7 @@ jobs:
       # Project issues
       - name: Project issues
         id: proj
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: project
           github-token: ${{ secrets.GITHUB_TOKEN }}

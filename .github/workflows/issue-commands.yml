@@ -35,12 +35,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python tools/gate.py
 
-      # ③ 执行命令（零手填二进制：@v1.1.0 + use-binary: true）
-      # Run command (zero-config binary: @v1.1.0 + use-binary: true)
+      # ③ 执行命令（零手填二进制：@v1.1.2 + use-binary: true）
+      # Run command (zero-config binary: @v1.1.2 + use-binary: true)
       - name: Run command
         id: cmd
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -54,7 +54,7 @@ jobs:
       - name: Project issues
         id: proj
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: project
           github-token: ${{ secrets.GITHUB_TOKEN }}

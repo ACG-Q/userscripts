@@ -49,7 +49,7 @@ jobs:
       - name: registry 可解析且结构合法
         run: python tools/validate_registry.py
       - name: 数据一致性（doctor）
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with: { command: doctor, github-token: "${{ secrets.GITHUB_TOKEN }}", use-binary: true }
 ```
 > 代码级门禁（ruff/mypy/coverage/snapshot）**不在此仓**，属工具仓；迁移期可临时并存，阶段 4 删除（PLAN U4-3）。
@@ -97,12 +97,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python tools/gate.py
 
-      # ③ 执行命令（零手填二进制：@v1.1.0 + use-binary: true）
-      # Run command (zero-config binary: @v1.1.0 + use-binary: true)
+      # ③ 执行命令（零手填二进制：@v1.1.2 + use-binary: true）
+      # Run command (zero-config binary: @v1.1.2 + use-binary: true)
       - name: Run command
         id: cmd
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -116,7 +116,7 @@ jobs:
       - name: Project issues
         id: proj
         if: steps.gate.outputs.authorized == 'true'
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: project
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -187,7 +187,7 @@ jobs:
       # Use action's zero-config binary mode to build site (replaces manual download+verify)
       - name: 构建站点 / Build site
         id: build
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: build
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -241,7 +241,7 @@ jobs:
       # Run /sync-all (identity injected as repo owner, same as before)
       - name: Run /sync-all
         id: cmd
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -254,7 +254,7 @@ jobs:
       # Project issues
       - name: Project issues
         id: proj
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: project
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -336,11 +336,11 @@ jobs:
           KEEP: ${{ inputs.keep }}
         run: python tools/cleanup_config.py
 
-      # 零手填二进制：@v1.1.0 + use-binary: true
-      # Zero-config binary: @v1.1.0 + use-binary: true
+      # 零手填二进制：@v1.1.2 + use-binary: true
+      # Zero-config binary: @v1.1.2 + use-binary: true
       - name: Archive and clean / 归档与清理
         id: clean
-        uses: acg-q/userscript-console@v1.1.0
+        uses: acg-q/userscript-console@v1.1.2
         with:
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -411,10 +411,10 @@ with:
   binary-sha256: '<64位十六进制，来自 release checksums.txt>'
 
 # 零手填二进制（推荐，工具仓 v1.1.0+）：只需写 tag，版本+校验和自动推导
-uses: acg-q/userscript-console@v1.1.0   # 精确版本 tag → 推导到对应 release
+uses: acg-q/userscript-console@v1.1.2   # 精确版本 tag → 推导到对应 release
 with:
   use-binary: true
-  # binary-version / binary-sha256 自动从 @v1.1.0 推导
+  # binary-version / binary-sha256 自动从 @v1.1.2 推导
 
 # 零手填 + 大版本 tag（自动取最新 v1.x）
 uses: acg-q/userscript-console@v1
@@ -424,7 +424,7 @@ with:
 ```
 
 - 内容仓**安全惯例不变**：pin sha + 显式 `binary-version`/`binary-sha256`（收紧信任链）；
-- **新增**：零手填模式（`@v1.1.0` 或 `@v1` + `use-binary: true`），工具仓从 `github.action_ref` / GitHub API 自动推导版本与校验和，`checksums.txt` 为单一真源；
+- **新增**：零手填模式（`@v1.1.2` 或 `@v1` + `use-binary: true`），工具仓从 `github.action_ref` / GitHub API 自动推导版本与校验和，`checksums.txt` 为单一真源；
 - bump pin = 单行改动的 PR，PR 描述贴工具仓 release notes 链接。
 
 ---

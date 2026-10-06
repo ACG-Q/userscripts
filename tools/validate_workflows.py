@@ -95,7 +95,7 @@ for f, expected_keys in TRIGGERS.items():
 # ── 8. tool version pinning (§5) ───────────────────────────────────────────
 # 支持两种 pin 方式：
 #   a) uses: acg-q/userscript-console@<40位sha>   （安全惯例，显式版本）
-#   b) uses: acg-q/userscript-console@v1.1.0      （零手填二进制，自动推导）
+#   b) uses: acg-q/userscript-console@v1.1.2      （零手填二进制，自动推导）
 #   c) uses: acg-q/userscript-console@v1          （大版本 tag，自动取最新 v1.x）
 REPO = 'acg-q/userscript-console'
 TOOL_WORKFLOWS = ['issue-commands.yml', 'deploy-pages.yml', 'sync-scheduled.yml',
@@ -138,7 +138,7 @@ if len(pinned_shas) == 1 and len(pinned_tags) > 0:
     errors.append('tool pins: mixing SHA pins and tag pins is not allowed (pick one per workflow)')
 
 # ── 9. v1 二进制（C4-2） ─────────────────────────────────────────────────
-# 工具仓 v1.1.0+：支持零手填二进制（@v1.1.0/@v1 + use-binary: true）
+# 工具仓 v1.1.0+：支持零手填二进制（@v1.1.2/@v1 + use-binary: true）
 # 所有调用点必须 use-binary: true（源码模式每次都要 go run 编译，慢一个量级）。
 USE_BINARY_EXPECTED = 7  # 5 workflows × calls = 7
 use_binary_seen = 0
