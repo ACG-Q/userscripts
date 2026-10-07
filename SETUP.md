@@ -62,7 +62,7 @@
 |---|---|---|---|
 | `AUTHOR_NAME` | Settings → Secrets and variables → **Variables** | `usm` | 自写脚本头部默认作者名 |
 | `AUTHOR_NAMESPACE` | 同上 | ``（空） | 自写脚本头部默认命名空间 |
-| `PAGES_BASE` | 同上 | 自动推导 | 站点绝对 URL（如 `https://acg-q.github.io/userscript-console`），一般不需设 |
+| `PAGES_BASE` | 同上 | 自动推导 | 站点绝对 URL（如 `https://acg-q.github.io/userscripts`），一般不需设 |
 
 > 这三个变量只在 `/add` 或自写脚本时影响头部默认值，**不设也能正常运行**。
 

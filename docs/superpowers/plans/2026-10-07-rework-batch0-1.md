@@ -714,7 +714,7 @@ git commit -m "fix(build): 补齐 dist 分发管线——add/sync 写 dist、bui
 
 - [ ] **步骤 5：内容仓 dist 首次入库**
 
-在内容仓根（数据根）跑 `usm build`（PAGES_BASE=https://acg-q.github.io/userscript-console），`git status` 应仅出现 `dist/*.user.js`（站点产物已被 .gitignore 忽略；验证 `git check-ignore dist/index.html` 仍命中）：
+在内容仓根（数据根）跑 `usm build`（PAGES_BASE=https://acg-q.github.io/userscripts——实际 Pages 路径由部署 status 环境 URL 确认；首跑误用 `userscript-console` 已在后续提交修正），`git status` 应仅出现 `dist/*.user.js`（站点产物已被 .gitignore 忽略；验证 `git check-ignore dist/index.html` 仍命中）：
 
 ```bash
 git add dist
