@@ -152,8 +152,8 @@
 // @grant       GM_getValue
 // @grant       GM_download
 // @grant       unsafeWindow
-// @downloadURL https://acg-q.github.io/userscript-console/dist/39280503d459.user.js
-// @updateURL https://acg-q.github.io/userscript-console/dist/39280503d459.user.js
+// @downloadURL https://acg-q.github.io/userscripts/dist/39280503d459.user.js
+// @updateURL https://acg-q.github.io/userscripts/dist/39280503d459.user.js
 // ==/UserScript==
 (function () {
 	'use strict';
