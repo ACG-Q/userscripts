@@ -668,6 +668,66 @@ git push origin HEAD
 
 ---
 
+### 任务 11：C4 分发管线（批次 0 追加；任务 10 步骤 3 的关闭条件推迟至本任务完成后）
+
+**（计划修订 2026-10-07）** 任务 1 审查新发现 C4（synced dist 无生成路径）按基线 :7 规则并入批次 1，但本计划初版未排任务；批次 1 关闭条件（"基线中所有 Critical 均为 fixed"）要求补本任务。依据：SPEC-DATA §2.2（`dist/<id>.user.js` 必须入库）、CUTOVER.md:13（每个 dist 含 downloadURL）、:42、:63、:96；projec-02 `commands/add.py:77-79,145-150`、`commands/sync.py:102-104`、`utils.py:227-229`。
+
+**文件：**
+- 修改：`internal/commands/commands.go`（新增 `writeDist` helper）
+- 修改：`internal/commands/add.go`、`sync.go`、`build.go`
+- 测试：`internal/commands/add_test.go`、`build_test.go`
+
+- [ ] **步骤 1：红灯测试**
+
+① `add_test.go` 追加 `TestAddFromURLWritesDist`：/add URL 后断言 `dist/<id>.user.js` 存在、含 `@downloadURL https://test.github.io/test/dist/<id>.user.js`（fake source 的 ID = `registry.SourceID(url)`）。
+② `TestAddSelfScriptWritesDist`：自写 /add 后同上断言（ID 为 newSelfID 生成，从 registry.json 读取）。
+③ `TestSyncWritesDist`：/sync 后断言 dist 更新为新版本且含 downloadURL。
+④ `build_test.go` 追加 `TestBuildIncludesSynced`：数据根放 self + synced 源文件，build 后两者的 `dist/<id>.user.js` 都存在且含 downloadURL（现状 synced 被跳过 → 红）。
+⑤ `TestBuildDistIdempotent`：连续两次 build 产物字节一致（CUTOVER:63）。
+
+- [ ] **步骤 2：实现**
+
+`commands.go` 新增（对应 projec-02 `build_dist_for_synced`/`build_userscript_header` 的统一行为）：
+
+```go
+// writeDist 生成并写入分发产物：以 registry 版本同步 @version，
+// 注入安装地址到 @downloadURL/@updateURL（PagesBase 为空则不注入）。
+func writeDist(env *Env, s *registry.Script, srcCode string) error {
+	code := script.SyncVersion(srcCode, s.Version)
+	code = script.EnsureURLs(code, distURL(env, s.ID), distURL(env, s.ID))
+	return script.WriteDist(env.Root, s.ID, code)
+}
+```
+
+- `add.go`：`addFromURL` 与 `addSelfScript` 的 `WriteSource` 成功后调用 `writeDist`（失败返回 error，与写源同待遇）。
+- `sync.go`：`runSyncOne` 的 `WriteSource` 后调用；`runSyncAll` 的 writeErrs 循环同时写 dist（计同一 writeErrs）。
+- `build.go`：跳过条件由 `s.Deleted || s.Type != registry.TypeSelf` 改为仅 `s.Deleted`；写盘改 `writeDist`（self 同样获得 URL 注入；synced 源路径由 `script.ReadSource` 按 type 分派）。
+
+- [ ] **步骤 3：全量门禁**（同任务 5 步骤 3：gofmt/vet/test ≥90%/snapshot check/build）。
+
+- [ ] **步骤 4：提交工具仓**
+
+```bash
+git add internal/commands
+git commit -m "fix(build): 补齐 dist 分发管线——add/sync 写 dist、build 覆盖 synced 并注入安装 URL"
+```
+
+- [ ] **步骤 5：内容仓 dist 首次入库**
+
+在内容仓根（数据根）跑 `usm build`（PAGES_BASE=https://acg-q.github.io/userscript-console），`git status` 应仅出现 `dist/*.user.js`（站点产物已被 .gitignore 忽略；验证 `git check-ignore dist/index.html` 仍命中）：
+
+```bash
+git add dist
+git commit -m "chore(dist): 首次生成分发产物入库（SPEC-DATA §2.2）"
+git push origin HEAD
+```
+
+- [ ] **步骤 6：勾销 C4 并关闭批次 1**
+
+baseline.md C4 行状态 → fixed（附哈希），核对"全部 Critical 均为 fixed"后提交推送；任务 10 步骤 4 汇报随后执行。
+
+---
+
 ## 自检记录
 
 1. **规格覆盖度：** §3 批次 0/1 → 任务 1-10；§4.1 C1/C2/C3 全部有对应任务；§5 测试三路径 → C2 用例含正常/归档失败/删除失败；§6 回滚 → 每任务独立 commit、CI 红新 commit 不 amend；§3 未提交改动盘点 → 任务 1 步骤 5 + 任务 6 步骤 3 验证。批次 2-5 明确不在本计划（规格 D5/范围：基线落盘后另写计划 2）。
