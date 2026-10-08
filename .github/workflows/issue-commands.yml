@@ -61,10 +61,11 @@ jobs:
           use-binary: true
 
       # ⑤ 提交（路径白名单，changed=false 时不提交）
-      # Commit (path allowlist, skip if changed=false)
+      # 显式状态函数：proj（④）失败不阻断 registry 提交，否则已执行命令结果被丢弃（I4）
+      # Commit (path allowlist, skip if changed=false; survives upstream failure)
       - name: Commit changes
         id: commit
-        if: steps.gate.outputs.authorized == 'true' && steps.cmd.outputs.changed == 'true'
+        if: ${{ !cancelled() && steps.gate.outputs.authorized == 'true' && steps.cmd.outputs.changed == 'true' && steps.cmd.outcome == 'success' }}
         run: >-
           python tools/commit.py --allowlist registry.json scripts dist archive
           --message "Apply command: ${{ github.event.comment.user.login }}"
@@ -72,7 +73,8 @@ jobs:
       # ⑥ 派发部署（GITHUB_TOKEN push 不触发 workflow，需显式派发）
       # Trigger deploy (GITHUB_TOKEN push doesn't trigger workflow, must dispatch explicitly)
       - name: Trigger site deploy
-        if: steps.gate.outputs.authorized == 'true' && steps.commit.outputs.committed == 'true'
+        id: deploy
+        if: ${{ !cancelled() && steps.gate.outputs.authorized == 'true' && steps.commit.outputs.committed == 'true' }}
         env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
         run: python tools/dispatch_deploy.py --workflow deploy-pages.yml
 
