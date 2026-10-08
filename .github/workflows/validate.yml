@@ -20,6 +20,17 @@ jobs:
       - name: registry 可解析且结构合法 / Validate registry structure
         run: python tools/validate_registry.py
 
+      # 工具仓 GraphQL 查询对官方 schema 校验（基线 I2；第二 checkout 取查询源）
+      # Tool-repo GraphQL queries validated against the official schema (baseline I2)
+      - uses: actions/checkout@v5
+        with:
+          repository: acg-q/userscript-console
+          path: tool-src
+      - name: 安装 GraphQL 校验依赖 / Install graphql-core
+        run: python -m pip install graphql-core==3.3.0
+      - name: GraphQL schema 校验 / Validate GraphQL queries
+        run: python tools/validate_graphql.py --go-dir tool-src
+
       # 数据一致性（doctor）——零手填二进制：@v1.1.2 + use-binary: true
       # Data consistency (doctor) — zero-config binary: @v1.1.2 + use-binary: true
       - name: 数据一致性（doctor） / Data consistency check

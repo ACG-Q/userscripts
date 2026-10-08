@@ -63,9 +63,11 @@ ic_raw = open('.github/workflows/issue-commands.yml', encoding='utf-8').read()
 if '!cancelled()' not in ic_raw:
     errors.append('issue-commands.yml: missing !cancelled() on reply step')
 
-# ── 6. run 步骤必须是 tools/*.py 单行调用（设计：全量替换内联 shell）────────
+# ── 6. run 步骤必须是 tools/*.py 单行调用，或单行 python -m pip install ──────
+# （设计：shell 逻辑全量收口进 tools/*.py；pip 例外只做依赖引导，无 shell 操作符）
 # 遍历 SPEC_PERMS（第 1 节已定义）而非 TRIGGERS（第 7 节才定义，避免 NameError）
-RUN_PATTERN = re.compile(r'^python tools/[a-z_]+\.py(\s.*)?$')
+RUN_PATTERN = re.compile(
+    r'^(python tools/[a-z_]+\.py(\s.*)?|python -m pip install [a-z0-9_.=\-]+)$')
 for f in SPEC_PERMS:
     raw, doc, _ = load_wf(f)
     for job_name, job in (doc.get('jobs') or {}).items():
