@@ -31,13 +31,13 @@ jobs:
       - name: GraphQL schema 校验 / Validate GraphQL queries
         run: python tools/validate_graphql.py --go-dir tool-src
 
-      # 数据一致性（doctor）——零手填二进制：@dd7084e806c15139613958fddbcf8f35f4adca02 + use-binary: true
-      # Data consistency (doctor) — zero-config binary: @dd7084e806c15139613958fddbcf8f35f4adca02 + use-binary: true
+      # 数据一致性（doctor）——零手填二进制：@23db7f042402bd8f00d3aa1b56ef2f7865d15584 + use-binary: true
+      # Data consistency (doctor) — zero-config binary: @23db7f042402bd8f00d3aa1b56ef2f7865d15584 + use-binary: true
       - name: 数据一致性（doctor） / Data consistency check
-        uses: acg-q/userscript-console@dd7084e806c15139613958fddbcf8f35f4adca02
+        uses: acg-q/userscript-console@23db7f042402bd8f00d3aa1b56ef2f7865d15584
         with:
           command: doctor
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           use-binary: true
-          binary-version: '1.1.3'
-          binary-sha256: '6e2cb3fa80e3e75bf9037bc19180c1e54a094488ec9e0a86e37978430ebf254f'
+          binary-version: '1.1.4'
+          binary-sha256: '50c4a5401cd1c60c2f4614988d8374dce1c5b770b7130fe97c6c029d54fe3b59'
