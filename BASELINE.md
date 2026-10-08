@@ -9,7 +9,7 @@
 | 项 | 值 |
 |---|---|
 | 仓名 | `userscript-manager`（**禁止改名**，DR-3） |
-| Pages URL | `https://acg-q.github.io/userscript-manager` |
+| Pages URL | `https://acg-q.github.io/userscripts` |
 | 工具仓 SHA | `614f54393c41cd2c0eea69223e8d17df0e3614a8`（`userscript-console` master：Release 流程完善 + v1 二进制模式可用） |
 | 本仓 HEAD | （推送后见 `git rev-parse HEAD`） |
 | workflow pin | 7 处 `uses:` 全部对齐工具仓 master ✅ |

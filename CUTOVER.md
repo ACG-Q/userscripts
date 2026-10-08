@@ -45,7 +45,7 @@ git rev-parse HEAD                          # → BASELINE.tool
 
 ### Step 4 —— `deploy-pages.yml`（U2-2）
 - 动作：按 `SPEC-WORKFLOWS §2.2` 改写（触发器与 `if` 逐字保留）
-- 验证：站点三件套可取；`https://acg-q.github.io/userscript-manager/scripts/3f45ee3c-….html` 有版本下拉；在版本帖发评论 → ~30s 后重建
+- 验证：站点三件套可取；`https://acg-q.github.io/userscripts/scripts/3f45ee3c-….html` 有版本下拉；在版本帖发评论 → ~30s 后重建
 - 回滚：revert
 
 ### Step 5 —— `sync-scheduled.yml`（U2-3）

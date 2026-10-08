@@ -29,4 +29,4 @@
 ## 安装
 
 访问 [GreasyFork](https://greasyfork.org/) 或 [userscript.zone](https://userscript.zone/) 搜索本仓项目，
-或直接访问 `https://acg-q.github.io/userscript-manager/dist/<id>.user.js` 安装。
+或直接访问 `https://acg-q.github.io/userscripts/dist/<id>.user.js` 安装。

@@ -153,7 +153,7 @@ tools/schema.docs.graphql
 | 项 | 值 | 消费者 |
 |---|---|---|
 | 仓名 | `userscript-manager`（**禁止改名**，DR-3） | 存量 `@downloadURL/@updateURL` |
-| Pages | 启用，`https://acg-q.github.io/userscript-manager` | 安装链接 |
+| Pages | 启用，`https://acg-q.github.io/userscripts` | 安装链接 |
 | vars `GITHUB_PAGES_URL` | 若已设则留空亦可（`build` 由 repo 推导） | `usm build` |
 | vars `AUTHOR_NAME` / `AUTHOR_NAMESPACE` | 现值 | 自写脚本头部默认值 |
 | 命令面板 | Issue #1（`control_issue_number` 硬编码在工具侧） | 所有 workflow 的 `if` |
