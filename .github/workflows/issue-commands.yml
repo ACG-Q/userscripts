@@ -88,4 +88,6 @@ jobs:
           RESULT: ${{ steps.cmd.outputs.result }}
           PROJ: ${{ steps.proj.outputs.result }}
           CMD_OK: ${{ steps.cmd.outcome }}
+          COMMIT_OK: ${{ steps.commit.outcome }}
+          DISPATCH_OK: ${{ steps.deploy.outcome }}
         run: python tools/reply.py
