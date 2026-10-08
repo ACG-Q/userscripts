@@ -48,9 +48,17 @@ class InitPanelTest(unittest.TestCase):
         self.assertEqual(self._run(api), 0)
         self.assertEqual(len(api.calls), 2)
 
+    def test_title_contains_match(self):
+        api = SeqApi([(200, [{"number": 5, "title": "🛠️ 命令面板（勿删）"}])])
+        self.assertEqual(self._run(api), 0)
+        self.assertEqual(len(api.calls), 1)
+        self.assertEqual(api.calls[0][0], "GET")
+
     def test_list_failure_returns_1(self):
         api = SeqApi([(500, None)])
         self.assertEqual(self._run(api), 1)
+        self.assertEqual(len(api.calls), 1)
+        self.assertEqual(api.calls[0][0], "GET")
 
     def test_missing_token_exits_2(self):
         env = dict(ENV)
