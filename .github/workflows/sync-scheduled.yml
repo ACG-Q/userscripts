@@ -24,7 +24,7 @@ jobs:
       # Run /sync-all (identity injected as repo owner, same as before)
       - name: Run /sync-all
         id: cmd
-        uses: acg-q/userscript-console@23db7f042402bd8f00d3aa1b56ef2f7865d15584
+        uses: acg-q/userscript-console@v1
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -32,20 +32,16 @@ jobs:
           comment-user: ${{ github.repository_owner }}
           issue-number: '1'
           use-binary: true
-          binary-version: '1.1.4'
-          binary-sha256: '50c4a5401cd1c60c2f4614988d8374dce1c5b770b7130fe97c6c029d54fe3b59'
 
       # 投影对账
       # Project issues
       - name: Project issues
         id: proj
-        uses: acg-q/userscript-console@23db7f042402bd8f00d3aa1b56ef2f7865d15584
+        uses: acg-q/userscript-console@v1
         with:
           command: project
           github-token: ${{ secrets.GITHUB_TOKEN }}
           use-binary: true
-          binary-version: '1.1.4'
-          binary-sha256: '50c4a5401cd1c60c2f4614988d8374dce1c5b770b7130fe97c6c029d54fe3b59'
 
       # 提交变更（白名单 registry/scripts/dist；无更新则 committed=false 短路）
       # Commit changes (allowlist; committed=false short-circuits when no update)

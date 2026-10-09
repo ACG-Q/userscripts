@@ -29,13 +29,11 @@ jobs:
       # Use action's zero-config binary mode to build site (replaces manual download+verify)
       - name: 构建站点 / Build site
         id: build
-        uses: acg-q/userscript-console@23db7f042402bd8f00d3aa1b56ef2f7865d15584
+        uses: acg-q/userscript-console@v1
         with:
           command: build
           github-token: ${{ secrets.GITHUB_TOKEN }}
           use-binary: true
-          binary-version: '1.1.4'
-          binary-sha256: '50c4a5401cd1c60c2f4614988d8374dce1c5b770b7130fe97c6c029d54fe3b59'
 
       # 组装 _site 目录结构（Pages 特有，属本仓；tools/assemble_site.py）
       # Assemble _site directory structure (Pages-specific, belongs to this repo)

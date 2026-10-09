@@ -48,19 +48,17 @@ jobs:
           KEEP: ${{ inputs.keep }}
         run: python tools/cleanup_config.py
 
-      # 零手填二进制：@23db7f042402bd8f00d3aa1b56ef2f7865d15584 + use-binary: true
-      # Zero-config binary: @23db7f042402bd8f00d3aa1b56ef2f7865d15584 + use-binary: true
+      # 零手填二进制：@v1 + use-binary: true
+      # Zero-config binary: @v1 + use-binary: true
       - name: Archive and clean / 归档与清理
         id: clean
-        uses: acg-q/userscript-console@23db7f042402bd8f00d3aa1b56ef2f7865d15584
+        uses: acg-q/userscript-console@v1
         with:
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}
           keep: ${{ steps.cfg.outputs.keep }}
           apply: ${{ steps.cfg.outputs.apply }}
           use-binary: true
-          binary-version: '1.1.4'
-          binary-sha256: '50c4a5401cd1c60c2f4614988d8374dce1c5b770b7130fe97c6c029d54fe3b59'
 
       # 提交归档（changed=false 或归档无差异 → committed=false 短路）
       # Commit archive (changed=false or no archive diff → committed=false)
