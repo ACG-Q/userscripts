@@ -105,17 +105,17 @@ scripts/
 
 ---
 
-## 3. 文档归属（阶段 4 后）
+## 3. 文档归属（已收敛，2026-10-09）
 
 | 文档 | 归属 | 说明 |
 |---|---|---|
-| `docs/index.md` | **本仓** | 改写为「脚本文档索引」：链各 `scripts/self/<id>/README.md` + 链工具仓的命令文档。**站点导航「文档」链接指向它**（`build` 的 `page()` 生成 `https://github.com/<本仓>/blob/master/docs/index.md`） |
-| `docs/commands/*.md` | → 工具仓 | `/add` `/up`… 的用法说明 |
-| `docs/design.md` | → 工具仓 | 系统设计 |
-| `docs/code-review-2026-10-03.md` | → 工具仓 | 审查与重写评估 |
+| ~~`docs/index.md`~~ | 已移除（2026-10-09） | `docs/` 整目录删除；站点无 `dist/docs` → `HasDocs=false` → 导航自动隐藏「文档」（防死链契约） |
+| ~~`docs/commands/*.md`~~ | 已移除（2026-10-09） | 命令文档落在工具仓 `userscript-console/docs/commands/` |
+| ~~`docs/design.md`~~ | 已移除（2026-10-09） | 系统设计在工具仓历史规格 |
+| ~~`docs/code-review-2026-10-03.md`~~ | 已移除（2026-10-09） | 审查档案在工具仓历史规格 |
 | `README.md` | **本仓** | 面向脚本用户：安装、如何在 Issue #1 发命令、脚本列表；命令速查**链接**到工具仓 README |
 
-> 注意：`docs/index.md` 目前把 `design.md`/`commands/` 当相对链接，迁出后必须改成**绝对 URL** 指向工具仓，否则死链。
+> 本表其余历史清单（BASELINE.md / CUTOVER.md / PLAN.md）原样保留，不随本次清理变更。
 
 ---
 
