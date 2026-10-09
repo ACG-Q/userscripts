@@ -25,6 +25,16 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # 命令文档源在工具仓（docs/ 与代码同 PR 演进）；拉取后由 build 转换发布为本站 /docs/
+      # Command docs source lives in the tool repo; fetched here so build publishes /docs/ on this site
+      - uses: actions/checkout@v5
+        with:
+          repository: acg-q/userscript-console
+          path: tool-docs
+          sparse-checkout: docs
+      - name: 放置文档源 / Place docs source
+        run: cp -r tool-docs/docs ./docs
+
       # 使用 action 的零手填二进制模式构建站点（替代原手写下载+校验步骤）
       # Use action's zero-config binary mode to build site (replaces manual download+verify)
       - name: 构建站点 / Build site

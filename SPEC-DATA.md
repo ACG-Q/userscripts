@@ -105,16 +105,17 @@ scripts/
 
 ---
 
-## 3. 文档归属（已收敛，2026-10-09）
+## 3. 文档归属（已收敛，2026-10-09；发布迁移 2026-10-09 方案 B）
 
 | 文档 | 归属 | 说明 |
 |---|---|---|
-| ~~`docs/index.md`~~ | 已移除（2026-10-09） | `docs/` 整目录删除；站点无 `dist/docs` → `HasDocs=false` → 导航自动隐藏「文档」（防死链契约） |
-| ~~`docs/commands/*.md`~~ | 已移除（2026-10-09） | 命令文档落在工具仓 `userscript-console/docs/commands/` |
+| `docs/index.md` + `docs/commands/*.md` | **源在工具仓** `userscript-console/docs/` | 与工具代码同 PR 演进；`deploy-pages.yml` 部署前 sparse-checkout 拉取到 `./docs/`，`usm build` 转换为本站 `/docs/`（`HasDocs=true` → 导航「文档」指向 `docs/index.html`） |
+| `docs/dev/*.md` | 工具仓 | 纯仓库文档，不转换为站点页 |
 | ~~`docs/design.md`~~ | 已移除（2026-10-09） | 系统设计在工具仓历史规格 |
 | ~~`docs/code-review-2026-10-03.md`~~ | 已移除（2026-10-09） | 审查档案在工具仓历史规格 |
 | `README.md` | **本仓** | 面向脚本用户：安装、如何在 Issue #1 发命令、脚本列表；命令速查**链接**到工具仓 README |
 
+> 本仓不持任何文档源文件（`docs/` 不入库，仅 CI 工作区临时落位）；工具仓自有 Pages 站已下线（2026-10-09），文档唯一发布地址为本站 `/docs/`。
 > 本表其余历史清单（BASELINE.md / CUTOVER.md / PLAN.md）原样保留，不随本次清理变更。
 
 ---
