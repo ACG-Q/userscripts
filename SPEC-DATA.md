@@ -116,7 +116,7 @@ scripts/
 | `README.md` | **本仓** | 面向脚本用户：安装、如何在 Issue #1 发命令、脚本列表；命令速查**链接**到工具仓 README |
 
 > 本仓不持任何文档源文件（`docs/` 不入库，仅 CI 工作区临时落位）；工具仓自有 Pages 站已下线（2026-10-09），文档唯一发布地址为本站 `/docs/`。
-> 本表其余历史清单（BASELINE.md / CUTOVER.md / PLAN.md）原样保留，不随本次清理变更。
+> 历史清单（`BASELINE.md` / `CUTOVER.md` / `PLAN.md` / `docs-ownership.md`）已于 2026-10-10 文档精简移除，见 git 历史。
 
 ---
 
