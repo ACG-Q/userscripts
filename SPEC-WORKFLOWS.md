@@ -232,7 +232,8 @@ registry+scripts+dist 三处 diff、回帖含 ID、部署被派发；③ 非拥�
 
 ### 1.6 `init-command-panel.yml`（一次性建面板）
 
-- **唯一保留脚本** `tools/init_panel.py`（幂等：Issue #1 已存在则跳过），
+- **保留脚本** `tools/init_panel.py`（幂等：Issue #1 已存在则跳过；依赖
+  `tools/github_api.py`，纯标准库），
   逐字不变：`checkout` → `python tools/init_panel.py`（设计 §3.5 留）。
 
 ---

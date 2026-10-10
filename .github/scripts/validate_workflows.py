@@ -92,7 +92,7 @@ if '!cancelled()' not in ic_raw:
 # ── 6. run 步骤只允许两类胶水与保留脚本（SPEC §0 纪律 5 / §3 白名单）────────
 #   a) 白名单 git 提交链（config/add/diff/commit/push；add 路径必须在白名单内）
 #   b) gh 胶水（派发 deploy-pages、失败兜底回帖）
-#   c) 保留项：tools/init_panel.py、工具仓文档搬运 cp
+#   c) 保留项：tools/init_panel.py（依赖 tools/github_api.py）、工具仓文档搬运 cp
 GIT_CHAIN = re.compile(r'^git config .*&& .*git add [^&]+&& ')
 GH_GLUE = re.compile(r'^(gh workflow run deploy-pages\.yml|gh issue comment )')
 KEEP_RUN = re.compile(r'^(python tools/init_panel\.py|cp -r tool-docs/docs \./docs)$')
