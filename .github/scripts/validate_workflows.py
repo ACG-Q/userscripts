@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Validate all GitHub workflows against SPEC-WORKFLOWS.md."""
+"""校验 .github/workflows/ 是否符合 SPEC-WORKFLOWS.md（设计 D7 薄壳形态）。
+
+原位于 tools/，因内容仓减负暂移本目录（后续人工迁往工具仓）。
+所有路径基于仓库根目录（向上查找 .git）解析，可从任意工作目录运行。
+"""
 import os
 import re
 import subprocess
@@ -10,15 +14,37 @@ import yaml
 errors = []
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+def find_repo_root(start):
+    """从 start 向上查找含 .git 的目录作为仓库根；找不到返回 None。"""
+    d = start
+    while True:
+        if os.path.isdir(os.path.join(d, '.git')):
+            return d
+        parent = os.path.dirname(d)
+        if parent == d:
+            return None
+        d = parent
+
+
+ROOT = find_repo_root(os.path.dirname(os.path.abspath(__file__)))
+if ROOT is None:
+    print('无法定位仓库根目录（未找到 .git）', file=sys.stderr)
+    sys.exit(2)
+
+
+def wf_path(name):
+    return os.path.join(ROOT, '.github', 'workflows', name)
+
+
 def load_wf(name):
-    path = f'.github/workflows/{name}'
-    raw = open(path, encoding='utf-8').read()
+    with open(wf_path(name), encoding='utf-8') as fh:
+        raw = fh.read()
     doc = yaml.safe_load(raw)
     # PyYAML turns bare 'on' into True
     events = doc.get(True, {}) if True in doc else doc.get('on', {})
     return raw, doc, events
 
-# ── 1. permissions (§3) ─────────────────────────────────────────────────────
+# ── 1. permissions（SPEC §2 对照表）──────────────────────────────────────────
 SPEC_PERMS = {
     'issue-commands.yml':      {'contents':'write','issues':'write','actions':'write','discussions':'write'},
     'deploy-pages.yml':        {'contents':'read','pages':'write','id-token':'write','issues':'read','discussions':'read'},
@@ -33,7 +59,7 @@ for f, expected in SPEC_PERMS.items():
     if dict(actual) != expected:
         errors.append(f'{f}: permissions mismatch expected={expected} actual={dict(actual)}')
 
-# ── 2. timeout (§2.x) ───────────────────────────────────────────────────────
+# ── 2. timeout（SPEC §0 约定）────────────────────────────────────────────────
 TIMEOUTS = {'issue-commands.yml':15,'deploy-pages.yml':10,'sync-scheduled.yml':15,'cleanup-panel.yml':10,'validate.yml':5}
 for f, exp_t in TIMEOUTS.items():
     raw, doc, _ = load_wf(f)
@@ -43,31 +69,34 @@ for f, exp_t in TIMEOUTS.items():
         errors.append(f'{f}: timeout={t} expected={exp_t}')
 
 # ── 3. concurrency ──────────────────────────────────────────────────────────
-v = yaml.safe_load(open('.github/workflows/validate.yml', encoding='utf-8'))['concurrency']
-dp = yaml.safe_load(open('.github/workflows/deploy-pages.yml', encoding='utf-8'))['concurrency']
+v = yaml.safe_load(open(wf_path('validate.yml'), encoding='utf-8'))['concurrency']
+dp = yaml.safe_load(open(wf_path('deploy-pages.yml'), encoding='utf-8'))['concurrency']
 if v.get('cancel-in-progress') != True:
     errors.append('validate.yml: cancel-in-progress should be true (allow reruns)')
 if dp.get('cancel-in-progress') != False:
     errors.append('deploy-pages.yml: cancel-in-progress should be false (serial deploy)')
 
-# ── 4. git add danger (§4) ──────────────────────────────────────────────────
+# ── 4. git add danger（SPEC §3 禁止 . / -A / --all）────────────────────────
 DANGER = ['git add .', 'git add -A', 'git add --all']
 for f in ['issue-commands.yml','deploy-pages.yml','sync-scheduled.yml','cleanup-panel.yml']:
-    raw = open(f'.github/workflows/{f}', encoding='utf-8').read()
+    raw = open(wf_path(f), encoding='utf-8').read()
     for d in DANGER:
         if d in raw:
             errors.append(f'{f}: contains dangerous "{d}"')
 
-# ── 5. !cancelled guard (§2.1 step ⑥) ─────────────────────────────────────
-ic_raw = open('.github/workflows/issue-commands.yml', encoding='utf-8').read()
+# ── 5. !cancelled guard（SPEC §0 纪律 3：失败兜底回帖）─────────────────────
+ic_raw = open(wf_path('issue-commands.yml'), encoding='utf-8').read()
 if '!cancelled()' not in ic_raw:
     errors.append('issue-commands.yml: missing !cancelled() on reply step')
 
-# ── 6. run 步骤必须是 tools/*.py 单行调用，或单行 python -m pip install ──────
-# （设计：shell 逻辑全量收口进 tools/*.py；pip 例外只做依赖引导，无 shell 操作符）
-# 遍历 SPEC_PERMS（第 1 节已定义）而非 TRIGGERS（第 7 节才定义，避免 NameError）
-RUN_PATTERN = re.compile(
-    r'^(python tools/[a-z_]+\.py(\s.*)?|python -m pip install [a-z0-9_.=\-]+)$')
+# ── 6. run 步骤只允许两类胶水与保留脚本（SPEC §0 纪律 5 / §3 白名单）────────
+#   a) 白名单 git 提交链（config/add/diff/commit/push；add 路径必须在白名单内）
+#   b) gh 胶水（派发 deploy-pages、失败兜底回帖）
+#   c) 保留项：tools/init_panel.py、工具仓文档搬运 cp
+GIT_CHAIN = re.compile(r'^git config .*&& .*git add [^&]+&& ')
+GH_GLUE = re.compile(r'^(gh workflow run deploy-pages\.yml|gh issue comment )')
+KEEP_RUN = re.compile(r'^(python tools/init_panel\.py|cp -r tool-docs/docs \./docs)$')
+ALLOWED_ADD = {'registry.json', 'scripts', 'dist', 'archive'}
 for f in SPEC_PERMS:
     raw, doc, _ = load_wf(f)
     for job_name, job in (doc.get('jobs') or {}).items():
@@ -75,11 +104,17 @@ for f in SPEC_PERMS:
             if 'run' not in step:
                 continue
             run = str(step['run']).strip()
-            if not RUN_PATTERN.match(run):
+            if not (GIT_CHAIN.match(run) or GH_GLUE.match(run) or KEEP_RUN.match(run)):
                 errors.append(
-                    f'{f} [{job_name}]: run 必须是单行 python tools/*.py 调用: {run!r}')
+                    f'{f} [{job_name}]: run 违反薄壳纪律（仅白名单 git / gh 胶水 / 保留脚本）: {run!r}')
+                continue
+            m = re.search(r'git add ([^&]+?) &&', run)
+            if m:
+                for p in m.group(1).split():
+                    if p not in ALLOWED_ADD:
+                        errors.append(f'{f} [{job_name}]: git add 白名单外路径 {p!r}')
 
-# ── 7. trigger / on: events (§2) ───────────────────────────────────────────
+# ── 7. trigger / on: events（原版逐字保留）──────────────────────────────────
 TRIGGERS = {
     'issue-commands.yml':      {'issue_comment'},
     'deploy-pages.yml':        {'push','issues','issue_comment','discussion_comment','workflow_dispatch'},
@@ -94,7 +129,7 @@ for f, expected_keys in TRIGGERS.items():
     if got != expected_keys:
         errors.append(f'{f}: triggers got={got} expected={expected_keys}')
 
-# ── 8. tool version pinning (§5) ───────────────────────────────────────────
+# ── 8. tool version pinning（SPEC §5）───────────────────────────────────────
 # 支持两种 pin 方式：
 #   a) uses: acg-q/userscript-console@<40位sha>   （安全惯例，显式版本）
 #   b) uses: acg-q/userscript-console@v1.1.2      （零手填二进制，自动推导）
@@ -104,9 +139,8 @@ TOOL_WORKFLOWS = ['issue-commands.yml', 'deploy-pages.yml', 'sync-scheduled.yml'
                   'cleanup-panel.yml', 'validate.yml']
 
 def latest_tool_sha():
-    """Read the tool repo's master SHA; returns None when unreachable."""
-    tool_repo = os.path.normpath(
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'userscript-console'))
+    """读取同级工具仓 origin/master 的 SHA；不可达时返回 None。"""
+    tool_repo = os.path.join(os.path.dirname(ROOT), 'userscript-console')
     if not os.path.isdir(os.path.join(tool_repo, '.git')):
         return None
     try:
@@ -123,7 +157,7 @@ pinned_shas = set()
 pinned_tags = set()
 
 for f in TOOL_WORKFLOWS:
-    raw = open(f'.github/workflows/{f}', encoding='utf-8').read()
+    raw = open(wf_path(f), encoding='utf-8').read()
     # Match @<sha> or @vX.Y.Z or @vN
     for pin in re.findall(f'{re.escape(REPO)}@([0-9a-f]{{40}}|v[0-9]+(\\.[0-9]+)*(\\.[0-9]+)?)', raw):
         pin = pin[0] if isinstance(pin, tuple) else pin
@@ -139,10 +173,8 @@ if len(pinned_shas) > 1:
 if len(pinned_shas) == 1 and len(pinned_tags) > 0:
     errors.append('tool pins: mixing SHA pins and tag pins is not allowed (pick one per workflow)')
 
-# ── 9. v1 二进制（C4-2） ─────────────────────────────────────────────────
-# 工具仓 v1.1.0+：支持零手填二进制（@v1.1.2/@v1 + use-binary: true）
-# 所有调用点必须 use-binary: true（源码模式每次都要 go run 编译，慢一个量级）。
-USE_BINARY_EXPECTED = 7  # 5 workflows × calls = 7
+# ── 9. 二进制零手填（所有 usm 调用必须 use-binary: true）────────────────────
+USE_BINARY_EXPECTED = 7  # cmd/proj×2 + build + sync cmd/proj + cleanup + doctor
 use_binary_seen = 0
 
 for f in TOOL_WORKFLOWS:
@@ -156,7 +188,7 @@ for f in TOOL_WORKFLOWS:
             if (step.get('with') or {}).get('use-binary') is not True:
                 errors.append(
                     f'{f} [{job_name}]: use-binary 应为 true'
-                    '（v1 二进制已发布；源码模式每次都要 go run 编译）')
+                    '（源码模式每次都要 go run 编译，慢一个量级）')
 
 # ── report ──────────────────────────────────────────────────────────────────
 if errors:
@@ -176,7 +208,7 @@ print('ALL CHECKS PASSED — workflows match SPEC-WORKFLOWS.md')
 print(f'  tool pins: {pin_str} across 5 workflows{freshness}')
 print('  permissions: 6 workflows verified')
 print('  timeouts:     5 checked')
-print('  git add:      no dangerous patterns')
-print('  run one-liner: all run steps are python tools/*.py calls')
+print('  git add:      no dangerous patterns, paths within allowlist')
+print('  run 胶水:     仅白名单 git / gh / 保留脚本')
 print('  !cancelled:   reply step guarded')
 print(f'  use-binary:   {use_binary_seen}/{USE_BINARY_EXPECTED} call sites (v1 binary)')

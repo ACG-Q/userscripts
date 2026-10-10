@@ -35,20 +35,16 @@ jobs:
       - name: 放置文档源 / Place docs source
         run: cp -r tool-docs/docs ./docs
 
-      # 使用 action 的零手填二进制模式构建站点（替代原手写下载+校验步骤）
-      # Use action's zero-config binary mode to build site (replaces manual download+verify)
+      # 构建站点并搬移 _site（pages-out 收编原站点组装步骤，语义不变）
+      # Build site and move into _site (pages-out folds the old assemble step)
       - name: 构建站点 / Build site
         id: build
         uses: acg-q/userscript-console@v1
         with:
           command: build
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          pages-out: _site
           use-binary: true
-
-      # 组装 _site 目录结构（Pages 特有，属本仓；tools/assemble_site.py）
-      # Assemble _site directory structure (Pages-specific, belongs to this repo)
-      - name: 组装 _site / Assemble _site
-        run: python tools/assemble_site.py
 
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v4

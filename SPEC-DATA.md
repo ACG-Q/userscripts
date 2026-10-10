@@ -143,7 +143,7 @@ __pycache__/
 .coverage
 coverage.xml
 htmlcov/
-tools/schema.docs.graphql
+.github/scripts/schema.docs.graphql
 ```
 ⚠️ **不得**出现 `dist/`、`dist/*.user.js`、`scripts/`、`archive/` 这类整目录忽略。
 

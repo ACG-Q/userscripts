@@ -2,7 +2,6 @@ name: Issue Commands Manager
 
 on:
   issue_comment: { types: [created] }
-
 permissions:
   contents: write
   issues: write
@@ -17,77 +16,57 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # 仅命令面板 Issue #1、排除 PR 评论
-    # Only command panel Issue #1, exclude PR comments
     if: ${{ !github.event.issue.pull_request && github.event.issue.number == 1 }}
     steps:
-      # ① 统一先 checkout（设计 D2：门禁脚本 tools/gate.py 在仓库内）
-      # Checkout first (D2: gate script lives in the repo)
       - uses: actions/checkout@v5
 
-      # ② 权限门禁：未授权删除该评论（tools/gate.py）
-      # Permission gate: delete comment if unauthorized (tools/gate.py)
-      - name: Permission gate
-        id: gate
-        env:
-          COMMENT_USER: ${{ github.event.comment.user.login }}
-          REPO_OWNER: ${{ github.repository_owner }}
-          COMMENT_ID: ${{ github.event.comment.id }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python tools/gate.py
-
-      # ③ 执行命令（零手填二进制：@v1 + use-binary: true）
-      # Run command (zero-config binary: @v1 + use-binary: true)
+      # 门禁删评 + 执行 + 结果回帖都在 action 内（comment-id / post-reply）
       - name: Run command
         id: cmd
-        if: steps.gate.outputs.authorized == 'true'
         uses: acg-q/userscript-console@v1
         with:
           command: run-command
           github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-body: ${{ github.event.comment.body }}
           comment-user: ${{ github.event.comment.user.login }}
+          comment-id: ${{ github.event.comment.id }}
           issue-number: ${{ github.event.issue.number }}
+          post-reply: 'true'
           use-binary: true
 
-      # ④ 投影对账（命令可能改了 registry）
-      # Project issues (command may have changed registry)
+      # 投影对账（命令可能改了 registry）
       - name: Project issues
         id: proj
-        if: steps.gate.outputs.authorized == 'true'
+        if: steps.cmd.outputs.authorized == 'true'
         uses: acg-q/userscript-console@v1
         with:
           command: project
           github-token: ${{ secrets.GITHUB_TOKEN }}
           use-binary: true
 
-      # ⑤ 提交（路径白名单，changed=false 时不提交）
-      # 显式状态函数：proj（④）失败不阻断 registry 提交，否则已执行命令结果被丢弃（I4）
-      # Commit (path allowlist, skip if changed=false; survives upstream failure)
+      # 提交（路径白名单；changed=false 时整步跳过）
       - name: Commit changes
         id: commit
-        if: ${{ !cancelled() && steps.gate.outputs.authorized == 'true' && steps.cmd.outputs.changed == 'true' && steps.cmd.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.cmd.outputs.authorized == 'true' && steps.cmd.outputs.changed == 'true' && steps.cmd.outcome == 'success' }}
         run: >-
-          python tools/commit.py --allowlist registry.json scripts dist archive
-          --message "Apply command: ${{ github.event.comment.user.login }}"
+          git config user.name "github-actions[bot]" &&
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com" &&
+          git add registry.json scripts dist archive &&
+          (git diff --staged --quiet ||
+          (git commit -m "Apply command: ${{ github.event.comment.user.login }}" && git push))
 
-      # ⑥ 派发部署（GITHUB_TOKEN push 不触发 workflow，需显式派发）
-      # Trigger deploy (GITHUB_TOKEN push doesn't trigger workflow, must dispatch explicitly)
+      # 派发站点部署（GITHUB_TOKEN push 不触发 workflow，需显式派发）
       - name: Trigger site deploy
         id: deploy
-        if: ${{ !cancelled() && steps.gate.outputs.authorized == 'true' && steps.commit.outputs.committed == 'true' }}
+        if: ${{ !cancelled() && steps.commit.outcome == 'success' }}
         env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: python tools/dispatch_deploy.py --workflow deploy-pages.yml
+        run: gh workflow run deploy-pages.yml
 
-      # ⑦ 失败也回帖（逐字沿用现规范）
-      # Reply even on failure (keep existing spec)
+      # 失败也回帖（逐字沿用现规范）
       - name: Reply to comment
-        if: ${{ !cancelled() && steps.gate.outputs.authorized == 'true' }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-          RESULT: ${{ steps.cmd.outputs.result }}
-          PROJ: ${{ steps.proj.outputs.result }}
-          CMD_OK: ${{ steps.cmd.outcome }}
-          COMMIT_OK: ${{ steps.commit.outcome }}
-          DISPATCH_OK: ${{ steps.deploy.outcome }}
-        run: python tools/reply.py
+        if: ${{ !cancelled() && (steps.cmd.outcome == 'failure' || steps.proj.outcome == 'failure' || steps.commit.outcome == 'failure' || steps.deploy.outcome == 'failure') }}
+        env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
+        run: |
+          gh issue comment ${{ github.event.issue.number }} \
+            -R ${{ github.repository }} \
+            --body "⚠️ 执行/提交/派发环节失败，请查看 Actions 日志"

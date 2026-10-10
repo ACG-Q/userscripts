@@ -145,7 +145,7 @@ registry+scripts+dist 三处 diff、回帖含 ID、部署被派发；③ 非拥�
 
 - `/sync-all` 以仓库拥有者名义注入（`comment-user: ${{ github.repository_owner }}`）；
 - **`post-reply: 'false'`**：schedule 无评论上下文，不回帖（原版也无回帖步骤）；
-- 提交与派发为内联胶水（原 `commit.py` / `dispatch_deploy.py` 删除，设计 §3.5）：
+- 提交与派发为内联胶水（原独立提交/派发脚本已删，设计 §3.5）：
 
 ```yaml
       - name: Run /sync-all
@@ -186,9 +186,11 @@ registry+scripts+dist 三处 diff、回帖含 ID、部署被派发；③ 非拥�
 
 ### 1.4 `cleanup-panel.yml`（定期清理归档）
 
-- `apply`/`keep` 归一改为**表达式直传**（原 `cleanup_config.py` 删除，设计 §3.5）：
-  `apply: ${{ github.event_name == 'schedule' || inputs.apply == 'true' }}`、
+- `apply`/`keep` 归一改为**表达式直传**（原输入归一脚本已删，设计 §3.5）：
+  `apply: ${{ github.event_name == 'schedule' || inputs.apply }}`、
   `keep: ${{ inputs.keep || '10' }}`——定时触发固定 `apply=true`，手动触发默认 dry-run；
+  ⚠️ `inputs.apply` 是**布尔值**，禁止写 `== 'true'`：类型不匹配时 GH 转数字比较
+  （`1 == NaN` 恒 false），手动触发 apply=true 会被误判成 dry-run；
 - `workflow_dispatch` 的 `apply`/`keep` 两个 input、`fetch-depth: 0`（归档累积文件，
   浅克隆 push 被拒）**逐字保留**；
 - 提交（白名单 `archive`）与派发为内联胶水（同 1.3 模式，message 为
@@ -202,7 +204,7 @@ registry+scripts+dist 三处 diff、回帖含 ID、部署被派发；③ 非拥�
           command: cleanup
           github-token: ${{ secrets.GITHUB_TOKEN }}
           keep: ${{ inputs.keep || '10' }}
-          apply: ${{ github.event_name == 'schedule' || inputs.apply == 'true' }}
+          apply: ${{ github.event_name == 'schedule' || inputs.apply }}
           use-binary: true
 ```
 
@@ -213,8 +215,8 @@ registry+scripts+dist 三处 diff、回帖含 ID、部署被派发；③ 非拥�
 
 ### 1.5 `validate.yml`（数据自检）
 
-- `validate_registry.py` 删除，由 `usm doctor --check` 覆盖（registry 结构与 schema
-  版本、源码/dist/归档一致性，见 SPEC-DATA §6）；
+- registry 结构自检收编进 `usm doctor --check`（原独立校验脚本已删，覆盖 registry 结构与
+  schema 版本、源码/dist/归档一致性，见 SPEC-DATA §6）；
 - GraphQL schema 校验归属工具仓（其 CI 同类校验），本仓副本删除（设计 §3.5）；
 - `permissions: contents: read`、`cancel-in-progress: true` 逐字不变。
 
@@ -260,7 +262,7 @@ registry+scripts+dist 三处 diff、回帖含 ID、部署被派发；③ 非拥�
 | 清理归档后 | `archive` |
 | **禁止** | `.`、`-A`、`--all`（会把无关工作区状态推上去） |
 
-> 白名单由各 workflow 的**内联 git 步骤**执行（原 `commit.py` 删除）：固定
+> 白名单由各 workflow 的**内联 git 步骤**执行（原独立提交脚本已删，设计 §3.5）：固定
 > `github-actions[bot]` 身份 + `git diff --staged --quiet` 兜底防空提交。
 > `changed == 'true'` 作为提交步骤的前置条件（outputs 短路），两道防线都要保留。
 

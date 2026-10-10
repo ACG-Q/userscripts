@@ -20,8 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # 执行 /sync-all（身份注入与原版一致：以仓库拥有者名义执行）
-      # Run /sync-all (identity injected as repo owner, same as before)
+      # 执行 /sync-all（身份注入与原版一致：以仓库拥有者名义执行）；
+      # schedule 无评论上下文，post-reply 关闭（原版也无回帖步骤）
+      # Run /sync-all (identity injected as repo owner); no reply on schedule
       - name: Run /sync-all
         id: cmd
         uses: acg-q/userscript-console@v1
@@ -31,6 +32,7 @@ jobs:
           comment-body: /sync-all
           comment-user: ${{ github.repository_owner }}
           issue-number: '1'
+          post-reply: 'false'
           use-binary: true
 
       # 投影对账
@@ -43,15 +45,21 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           use-binary: true
 
-      # 提交变更（白名单 registry/scripts/dist；无更新则 committed=false 短路）
-      # Commit changes (allowlist; committed=false short-circuits when no update)
+      # 提交变更（白名单 registry/scripts/dist；changed=false 时整步跳过）
+      # Commit changes (path allowlist; skipped entirely when changed=false)
       - name: Commit changes
         id: commit
-        run: 'python tools/commit.py --allowlist registry.json scripts dist --message "chore: 同步第三方脚本"'
+        if: ${{ steps.cmd.outputs.changed == 'true' }}
+        run: >-
+          git config user.name "github-actions[bot]" &&
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com" &&
+          git add registry.json scripts dist &&
+          (git diff --staged --quiet ||
+          (git commit -m "chore: 同步第三方脚本" && git push))
 
-      # 派发站点部署（仅在真提交后）
-      # Trigger site deploy (only after a real commit)
+      # 派发站点部署（仅在提交步骤成功后；GITHUB_TOKEN push 不触发 workflow）
+      # Trigger site deploy (only after a successful commit step; GITHUB_TOKEN push doesn't trigger)
       - name: Trigger site deploy
-        if: steps.commit.outputs.committed == 'true'
+        if: ${{ steps.commit.outcome == 'success' }}
         env: { GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}" }
-        run: python tools/dispatch_deploy.py --workflow deploy-pages.yml
+        run: gh workflow run deploy-pages.yml
