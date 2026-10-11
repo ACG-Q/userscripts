@@ -47,7 +47,7 @@ jobs:
       # 提交（路径白名单；changed=false 时整步跳过）
       - name: Commit changes
         id: commit
-        if: ${{ !cancelled() && steps.cmd.outputs.authorized == 'true' && steps.cmd.outputs.changed == 'true' && steps.cmd.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.cmd.outputs.authorized == 'true' && (steps.cmd.outputs.changed == 'true' || steps.proj.outputs.changed == 'true') && steps.cmd.outcome == 'success' }}
         run: >-
           git config user.name "github-actions[bot]" &&
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com" &&
