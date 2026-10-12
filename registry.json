@@ -102,6 +102,59 @@
       "source_type": "direct",
       "last_synced_at": "2026-10-12T09:11:39Z",
       "sync_enabled": true
+    },
+    {
+      "id": "809d5f149376",
+      "type": "synced",
+      "name": "Github Enhancement - High Speed Download",
+      "version": "2.6.41",
+      "description": "High-speed download of Git Clone/SSH, Release, Raw, Code(ZIP) and other files (Based on public welfare), project list file quick download (☁)",
+      "author": "X.I.U",
+      "namespace": "",
+      "match": [
+        "*://github.com/*",
+        "*://bgithub.xyz/*"
+      ],
+      "grant": [
+        "GM_registerMenuCommand",
+        "GM_unregisterMenuCommand",
+        "GM_openInTab",
+        "GM_getValue",
+        "GM_setValue",
+        "GM_notification",
+        "GM_setClipboard",
+        "window.onurlchange"
+      ],
+      "enabled": true,
+      "created_at": "2026-10-12T09:11:59Z",
+      "updated_at": "2026-10-12T09:12:04Z",
+      "documentation": "",
+      "changelog": [
+        {
+          "version": "2.6.41",
+          "date": "2026-10-12",
+          "note": "初始同步"
+        }
+      ],
+      "discussions": [
+        {
+          "version": "2.6.41",
+          "number": 7,
+          "node_id": "D_kwDOU9fz6c4Ap9qW",
+          "url": "https://github.com/ACG-Q/userscripts/discussions/7",
+          "created_at": "2026-10-12T09:12:05Z"
+        }
+      ],
+      "deleted": false,
+      "issue": {
+        "number": 6,
+        "node_id": "I_kwDOU9fz6c8AAAABWmAYSA",
+        "url": "https://github.com/ACG-Q/userscripts/issues/6"
+      },
+      "source_url": "https://github.com/XIU2/UserScript/raw/refs/heads/master/GithubEnhanced-High-Speed-Download.user.js",
+      "source_type": "direct",
+      "last_synced_at": "2026-10-12T09:11:59Z",
+      "sync_enabled": true
     }
   ]
 }
