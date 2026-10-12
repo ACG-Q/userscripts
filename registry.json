@@ -50,6 +50,58 @@
       "source_type": "greasyfork",
       "last_synced_at": "2026-10-06T08:11:47Z",
       "sync_enabled": true
+    },
+    {
+      "id": "cca0e83ed261",
+      "type": "synced",
+      "name": "Bilibili Evolved",
+      "version": "2.11.4",
+      "description": "强大的哔哩哔哩增强脚本",
+      "author": "Grant Howard, Coulomb-G",
+      "namespace": "",
+      "match": [
+        "*://*.bilibili.com/*"
+      ],
+      "grant": [
+        "unsafeWindow",
+        "GM_getValue",
+        "GM_setValue",
+        "GM_deleteValue",
+        "GM_info",
+        "GM_xmlhttpRequest",
+        "GM_registerMenuCommand",
+        "GM_unregisterMenuCommand"
+      ],
+      "enabled": true,
+      "created_at": "2026-10-12T09:11:39Z",
+      "updated_at": "2026-10-12T09:11:41Z",
+      "documentation": "",
+      "changelog": [
+        {
+          "version": "2.11.4",
+          "date": "2026-10-12",
+          "note": "初始同步"
+        }
+      ],
+      "discussions": [
+        {
+          "version": "2.11.4",
+          "number": 5,
+          "node_id": "D_kwDOU9fz6c4Ap9qS",
+          "url": "https://github.com/ACG-Q/userscripts/discussions/5",
+          "created_at": "2026-10-12T09:11:42Z"
+        }
+      ],
+      "deleted": false,
+      "issue": {
+        "number": 4,
+        "node_id": "I_kwDOU9fz6c8AAAABWmAG2A",
+        "url": "https://github.com/ACG-Q/userscripts/issues/4"
+      },
+      "source_url": "https://raw.githubusercontent.com/the1812/Bilibili-Evolved/master/dist/bilibili-evolved.user.js",
+      "source_type": "direct",
+      "last_synced_at": "2026-10-12T09:11:39Z",
+      "sync_enabled": true
     }
   ]
 }
