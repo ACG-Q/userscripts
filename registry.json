@@ -196,6 +196,50 @@
         "node_id": "I_kwDOU9fz6c8AAAABfO1afQ",
         "url": "https://github.com/ACG-Q/userscripts/issues/8"
       }
+    },
+    {
+      "id": "aaf3db6a-dfd8-4d83-bf20-9aefe8c9ae41",
+      "type": "self",
+      "name": "Kirka.io 汉化",
+      "version": "12.1",
+      "description": "支持油猴菜单开关、全量词库与动态解析",
+      "author": "ACG-Q",
+      "namespace": "https://kirka.io/",
+      "match": [
+        "*://kirka.io/*",
+        "*://*.kirka.io/*"
+      ],
+      "grant": [
+        "GM_registerMenuCommand",
+        "GM_setValue",
+        "GM_getValue"
+      ],
+      "enabled": true,
+      "created_at": "2026-11-14T14:00:55Z",
+      "updated_at": "2026-11-14T14:00:59Z",
+      "documentation": "",
+      "changelog": [
+        {
+          "version": "12.1",
+          "date": "2026-11-14",
+          "note": "初始版本"
+        }
+      ],
+      "discussions": [
+        {
+          "version": "12.1",
+          "number": 11,
+          "node_id": "D_kwDOU9fz6c4ArI-6",
+          "url": "https://github.com/ACG-Q/userscripts/discussions/11",
+          "created_at": "2026-11-14T14:01:00Z"
+        }
+      ],
+      "deleted": false,
+      "issue": {
+        "number": 10,
+        "node_id": "I_kwDOU9fz6c8AAAABfO2NvQ",
+        "url": "https://github.com/ACG-Q/userscripts/issues/10"
+      }
     }
   ]
 }
