@@ -155,6 +155,47 @@
       "source_type": "direct",
       "last_synced_at": "2026-10-12T09:11:59Z",
       "sync_enabled": true
+    },
+    {
+      "id": "5e16d9a2-2466-4cba-8adb-f696aa1144e0",
+      "type": "self",
+      "name": "GitHub Actions 免登录下载 Artifacts (nightly.link)",
+      "version": "1.4",
+      "description": "在 GitHub Actions 运行页为每个 Artifact 添加基于 nightly.link 的免登录下载按钮 (SVG 图标，登录用户默认不显示)",
+      "author": "ACG-Q",
+      "namespace": "https://nightly.link/",
+      "match": [
+        "https://github.com/*/*/actions/runs/*"
+      ],
+      "grant": [
+        "none"
+      ],
+      "enabled": true,
+      "created_at": "2026-11-14T13:59:55Z",
+      "updated_at": "2026-11-14T13:59:58Z",
+      "documentation": "",
+      "changelog": [
+        {
+          "version": "1.4",
+          "date": "2026-11-14",
+          "note": "初始版本"
+        }
+      ],
+      "discussions": [
+        {
+          "version": "1.4",
+          "number": 9,
+          "node_id": "D_kwDOU9fz6c4ArI-u",
+          "url": "https://github.com/ACG-Q/userscripts/discussions/9",
+          "created_at": "2026-11-14T13:59:58Z"
+        }
+      ],
+      "deleted": false,
+      "issue": {
+        "number": 8,
+        "node_id": "I_kwDOU9fz6c8AAAABfO1afQ",
+        "url": "https://github.com/ACG-Q/userscripts/issues/8"
+      }
     }
   ]
 }
